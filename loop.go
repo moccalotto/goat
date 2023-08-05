@@ -7,7 +7,7 @@ import (
 
 func loops(window *sdl.Window, renderer *sdl.Renderer, lua_state *lua.LState) {
 	drawFunc := lua_state.GetGlobal("Draw")
-	updateFunc := lua_state.GetGlobal("Setup")
+	updateFunc := lua_state.GetGlobal("Update")
 	running := true
 	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {

@@ -1,13 +1,13 @@
 local naese = "næsegrus"
 
 function Setup()
-    print(naese)
+    print("Setupa:: ", naese)
 end
 
 function Draw(param)
-    print(param)
+    print("Draw:: ", param)
 end
 
 function Update(param)
-    print(param)
+    print("Update:: ", param)
 end
