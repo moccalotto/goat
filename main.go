@@ -8,52 +8,54 @@ import (
 )
 
 func main() {
-	L := lua.NewState()
-	defer L.Close()
-	fn, err := L.LoadString(`print("Hello from Lua")`)
-	if err != nil {
+	lua_state := lua.NewState()
+	defer lua_state.Close()
+
+	if err := lua_state.DoFile("script.lua"); err != nil {
 		panic(err)
 	}
-
-	L.Push(fn)
-	L.PCall(0, lua.MultRet, nil)
 
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
 	}
-	defer sdl.Quit()
-	L.Push(fn)
-	L.PCall(0, lua.MultRet, nil)
 
-	window, err := sdl.CreateWindow("test", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
-		800, 600, sdl.WINDOW_SHOWN)
+	defer sdl.Quit()
+
+	err := lua_state.CallByParam(lua.P{
+		Fn:      lua_state.GetGlobal("Setup"),
+		NRet:    0,
+		Protect: true,
+	})
+	if nil != err {
+		panic("Err")
+	}
+
+	window, err := sdl.CreateWindow(
+		"test",
+		sdl.WINDOWPOS_UNDEFINED,
+		sdl.WINDOWPOS_UNDEFINED,
+		800,
+		600,
+		sdl.WINDOW_SHOWN|sdl.WINDOW_RESIZABLE,
+	)
+
 	if err != nil {
 		panic(err)
 	}
 	defer window.Destroy()
 
-	surface, err := window.GetSurface()
+	renderer, err := sdl.CreateRenderer(
+		window,
+		-1,
+		sdl.RENDERER_ACCELERATED|
+			sdl.RENDERER_PRESENTVSYNC,
+	)
+
 	if err != nil {
 		panic(err)
 	}
-	surface.FillRect(nil, 0)
 
-	rect := sdl.Rect{X: 0, Y: 0, W: 200, H: 200}
-	colour := sdl.Color{R: 255, G: 0, B: 255, A: 255} // purple
-	pixel := sdl.MapRGBA(surface.Format, colour.R, colour.G, colour.B, colour.A)
-	surface.FillRect(&rect, pixel)
-	window.UpdateSurface()
+	loops(window, renderer, lua_state)
 
-	running := true
-	for running {
-		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch event.(type) {
-			case *sdl.QuitEvent:
-				println("Quit")
-				running = false
-				break
-			}
-		}
-	}
 	os.Exit(0)
 }
