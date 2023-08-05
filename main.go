@@ -50,25 +50,14 @@ func main() {
 		sdl.RENDERER_ACCELERATED|
 			sdl.RENDERER_PRESENTVSYNC,
 	)
-
 	if err != nil {
 		panic(err)
 	}
+	defer renderer.Destroy()
 
-	dm := DrawingMachine{renderer}
+	drawing := CreateDrawing(renderer)
 
-	lua_state.SetGlobal("Line", lua_state.NewFunction(func(L *lua.LState) int {
-		dm.Line(
-			float32(L.ToNumber(1)),
-			float32(L.ToNumber(2)),
-			float32(L.ToNumber(3)),
-			float32(L.ToNumber(4)),
-		)
-
-		return 0
-	}))
-
-	loops(window, renderer, lua_state)
+	loops(drawing, lua_state)
 
 	os.Exit(0)
 }
