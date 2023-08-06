@@ -4,43 +4,18 @@ import (
 	"fmt"
 
 	"github.com/veandco/go-sdl2/sdl"
-	lua "github.com/yuin/gopher-lua"
-	luar "layeh.com/gopher-luar"
 )
 
-func loop(drawing *Drawing, sys *SystemSettings, luaState *lua.LState) {
-	drawParam := luar.New(luaState, drawing)
-	sysParam := luar.New(luaState, sys)
-	drawFunc := luaState.GetGlobal("Draw")
-	renderer := drawing.renderer
+func loop(dm *Drawing) {
+	renderer := dm.renderer
+	dm.injectFunctions()
 
-	luaState.SetGlobal("Diller", luar.New(luaState, func() {
-		print("diller")
-	}))
-
+	renderer.SetDrawColor(255, 0, 0, 255)
 	for handlingEvents() {
-		renderer.SetDrawColor(0, 0, 0, 255)
-		renderer.Clear()
-		renderer.SetDrawColor(255, 0, 0, 255)
 
-		drawing.updateLocalVariables()
-
-		callLuaFunc(luaState, drawFunc, drawParam, sysParam)
+		dm.draw()
 
 		renderer.Present()
-	}
-}
-
-func callLuaFunc(lua_state *lua.LState, function lua.LValue, args ...lua.LValue) {
-	err := lua_state.CallByParam(lua.P{
-		Fn:      function,
-		NRet:    0,
-		Protect: true,
-		Handler: &lua.LFunction{},
-	}, args...)
-
-	if err != nil {
-		panic(err)
 	}
 }
 
@@ -51,7 +26,56 @@ func handlingEvents() bool {
 			println("Quit")
 			return false
 		case *sdl.KeyboardEvent:
-			fmt.Printf("%+v\n", t)
+			keyCode := t.Keysym.Sym
+			keys := ""
+
+			// Modifier keys
+			switch t.Keysym.Mod {
+			case sdl.KMOD_LALT:
+				keys += "Left Alt"
+			case sdl.KMOD_LCTRL:
+				keys += "Left Control"
+			case sdl.KMOD_LSHIFT:
+				keys += "Left Shift"
+			case sdl.KMOD_LGUI:
+				keys += "Left Meta or Windows key"
+			case sdl.KMOD_RALT:
+				keys += "Right Alt"
+			case sdl.KMOD_RCTRL:
+				keys += "Right Control"
+			case sdl.KMOD_RSHIFT:
+				keys += "Right Shift"
+			case sdl.KMOD_RGUI:
+				keys += "Right Meta or Windows key"
+			case sdl.KMOD_NUM:
+				keys += "Num Lock"
+			case sdl.KMOD_CAPS:
+				keys += "Caps Lock"
+			case sdl.KMOD_MODE:
+				keys += "AltGr Key"
+			}
+
+			if keyCode < 10000 {
+				if keys != "" {
+					keys += " + "
+				}
+
+				// If the key is held down, this will fire
+				if t.Repeat > 0 {
+					keys += string(keyCode) + " repeating"
+				} else {
+					if t.State == sdl.RELEASED {
+						keys += string(keyCode) + " released"
+					} else if t.State == sdl.PRESSED {
+						keys += string(keyCode) + " pressed"
+					}
+				}
+
+			}
+
+			if keys != "" {
+				fmt.Println(keys)
+			}
 		}
 	}
 
