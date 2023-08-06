@@ -11,18 +11,23 @@ function Dump(o)
     end
  end
 
-function Setup()
-    print("Setupa")
+ counter = 0
+
+function __Setup()
+    counter = math.random(1, 666666)
+    print("Setup::")
 end
 
-function Draw(dm)
-    print("Draw::", dm.stuff)
-    dm:Line(
-        dm.W * 0.3, dm.H * 0.3,
-        dm.W * 0.7, dm.H * 0.7
+-- D for draw, S for system
+function Draw(D, S)
+    -- Diller()
+    S:Sleep(100)
+    counter = counter + 1
+    D:Scale(math.random(1,10) / 3)
+    D:Line(
+        D.W * 0.3, D.H * 0.3,
+        D.W * 0.7, D.H * 0.7
     )
-end
 
-function Update(param)
-    print("Update:: ", param)
+    -- print(counter)
 end

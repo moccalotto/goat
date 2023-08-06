@@ -8,44 +8,52 @@ import (
 	luar "layeh.com/gopher-luar"
 )
 
-func loops(drawing *Drawing, lua_state *lua.LState) {
-	dm_param := luar.New(lua_state, drawing)
-	drawFunc := lua_state.GetGlobal("Draw")
-	updateFunc := lua_state.GetGlobal("Update")
+func loop(drawing *Drawing, sys *SystemSettings, luaState *lua.LState) {
+	drawParam := luar.New(luaState, drawing)
+	sysParam := luar.New(luaState, sys)
+	drawFunc := luaState.GetGlobal("Draw")
 	renderer := drawing.renderer
+
+	luaState.SetGlobal("Diller", luar.New(luaState, func() {
+		print("diller")
+	}))
 
 	for handlingEvents() {
 		renderer.SetDrawColor(0, 0, 0, 255)
 		renderer.Clear()
 		renderer.SetDrawColor(255, 0, 0, 255)
 
-		if err := lua_state.CallByParam(lua.P{
-			Fn:      updateFunc,
-			NRet:    0,
-			Protect: true,
-		}, lua.LString("Params for update")); err != nil {
-			//			panic(err)
-		}
-		err := lua_state.CallByParam(lua.P{
-			Fn:      drawFunc,
-			NRet:    0,
-			Protect: true,
-		}, luar.New(lua_state, dm_param))
+		drawing.updateLocalVariables()
 
-		if err != nil {
-			fmt.Printf("Error: %v", err)
-		}
+		callLuaFunc(luaState, drawFunc, drawParam, sysParam)
 
 		renderer.Present()
 	}
 }
 
+func callLuaFunc(lua_state *lua.LState, function lua.LValue, args ...lua.LValue) {
+	err := lua_state.CallByParam(lua.P{
+		Fn:      function,
+		NRet:    0,
+		Protect: true,
+		Handler: &lua.LFunction{},
+	}, args...)
+
+	if err != nil {
+		panic(err)
+	}
+}
+
 func handlingEvents() bool {
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-		switch event.(type) {
+		switch t := event.(type) {
 		case *sdl.QuitEvent:
 			println("Quit")
 			return false
+		case *sdl.KeyboardEvent:
+			fmt.Printf("%+v\n", t)
 		}
 	}
+
+	return true
 }

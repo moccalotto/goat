@@ -5,13 +5,26 @@ import (
 
 	"github.com/veandco/go-sdl2/sdl"
 	lua "github.com/yuin/gopher-lua"
+	luar "layeh.com/gopher-luar"
 )
 
 func main() {
-	lua_state := lua.NewState()
-	defer lua_state.Close()
+	exitCode := 0
 
-	if err := lua_state.DoFile("script.lua"); err != nil {
+	sdl.Main(func() {
+		exitCode = 0
+		run()
+	})
+
+	os.Exit(exitCode)
+}
+
+func run() {
+	sdl.Main(func() {})
+	script := lua.NewState()
+	defer script.Close()
+
+	if err := script.DoFile("script.lua"); err != nil {
 		panic(err)
 	}
 
@@ -21,13 +34,14 @@ func main() {
 
 	defer sdl.Quit()
 
-	err := lua_state.CallByParam(lua.P{
-		Fn:      lua_state.GetGlobal("Setup"),
-		NRet:    0,
-		Protect: true,
-	})
-	if nil != err {
-		panic("Err")
+	sys := &SystemSettings{}
+
+	// Call the setup function.
+	// In that function we set parameters needed to set the initial size and
+	// title of the window, etc.
+	setupFunc := script.GetGlobal("Setup")
+	if setupFunc.Type() != lua.LTNil {
+		callLuaFunc(script, setupFunc, luar.New(script, sys))
 	}
 
 	window, err := sdl.CreateWindow(
@@ -55,9 +69,10 @@ func main() {
 	}
 	defer renderer.Destroy()
 
+	sdl.SetHint(sdl.HINT_RENDER_SCALE_QUALITY, "1")
 	drawing := CreateDrawing(renderer)
 
-	loops(drawing, lua_state)
+	loop(drawing, sys, script)
 
 	os.Exit(0)
 }
