@@ -78,13 +78,13 @@ func (dm *Drawing) Quit() {
 	sdl.PushEvent(&quitEvent)
 }
 
-func (dm *Drawing) GetCanvasSize() (int32, int32) {
+func (dm *Drawing) CanvasSize() (int32, int32) {
 	w, h, _ := dm.renderer.GetOutputSize()
 
 	return w, h
 }
 
-func (dm *Drawing) GetViewSize() (int32, int32) {
+func (dm *Drawing) GridSize() (int32, int32) {
 	vp := dm.renderer.GetViewport()
 
 	return vp.W, vp.H
@@ -119,17 +119,27 @@ func (dm *Drawing) SleepUntil(end uint64, chunk_size_ms uint64) {
 }
 
 func (dm *Drawing) Sleep(ms uint64, relative ...bool) {
-	if len(relative) > 0 && relative[0] == true {
-		return
+
+	var endTime uint64
+	startTime := dm.nowTicks
+
+	if len(relative) == 0 || !relative[0] {
+		startTime = sdl.GetTicks64()
 	}
-	dm.SleepUntil(sdl.GetTicks64()+ms, 100)
+
+	endTime = startTime + ms
+
+	dm.SleepUntil(endTime, 10)
+
 }
 
+// Push all settings onto a the stack.
 func (dm *Drawing) Push() {
 	dm_copy := *dm
 	dm.stack = append(dm.stack, &dm_copy)
 }
 
+// Pop all settings from stack.
 func (dm *Drawing) Pop() {
 	// before := *dm
 	stack := dm.stack
@@ -138,4 +148,8 @@ func (dm *Drawing) Pop() {
 
 	// bookkeeping: settings have been changed and we need to notify SDL
 	dm.renderer.SetScale(dm.scaleX, dm.scaleY)
+}
+
+func (dm *Drawing) Autorender(autorender int) {
+	dm.autorender = autorender
 }

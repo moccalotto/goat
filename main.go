@@ -35,6 +35,9 @@ func run() int {
 
 	dm.injectFunctions()
 
+	// dm.beforeFirstDraw() -- a function that is called just before the loop starts,
+	// but after setup, so that the renderer and alle the settings are ready to rock.
+
 	for dm.ProcessEvents(100) {
 
 		renderer.SetDrawColor(dm.bgColor.R, dm.bgColor.G, dm.bgColor.B, dm.bgColor.A)
@@ -42,7 +45,13 @@ func run() int {
 
 		dm.draw()
 
-		renderer.Present()
+		if dm.autorender == AUTORENDER_ALWAYS {
+			renderer.Present()
+		}
+		if dm.autorender == AUTORENDER_SKIP_ONCE {
+			dm.autorender = AUTORENDER_ALWAYS
+		}
+
 	}
 
 	script.Close()

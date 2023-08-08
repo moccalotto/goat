@@ -5,6 +5,10 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
+const AUTORENDER_NEVER = -1
+const AUTORENDER_ALWAYS = 1
+const AUTORENDER_SKIP_ONCE = 0
+
 // My dream is to do all of this:: https://github.com/fogleman/gg
 
 type Drawing struct {
@@ -21,6 +25,7 @@ type Drawing struct {
 	frameRateCap float32       // Maximum allowed number of updates per second. - During this delay no events are processed.
 	stack        []*Drawing    // The stack that allows us to store and recall colors, scales, and other such settings.
 	count        uint64        // The number of calls to draw(). Starts at 1
+	autorender   int           // Should render be called automatically at the end of every draw() ?
 
 	keydownCallback *lua.LFunction
 	keyupCallback   *lua.LFunction
@@ -133,4 +138,13 @@ func (dm *Drawing) Line(x1, y1, x2, y2 float32) {
 func (dm *Drawing) Dot(x, y float32) {
 	dm.applySettingsToRenderer()
 	dm.renderer.DrawPointF(x, y)
+}
+
+func (dm *Drawing) Rectangle(x1, y1, x2, y2 float32) {
+	dm.renderer.DrawRectF(&sdl.FRect{
+		X: x1,
+		Y: y1,
+		H: y2 - y1,
+		W: x2 - x1,
+	})
 }

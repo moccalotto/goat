@@ -89,7 +89,7 @@ snake.canPlaceFood = function(self, point)
       return false
    end
 
-   local maxX, maxY = GetViewSize()
+   local maxX, maxY = CanvasSize()
 
    if point[1] < 0 or point[1] >= maxX then
       return false
@@ -211,7 +211,7 @@ function Draw()
    Scale(1)
    Color(30)
 
-   local maxX, maxY = GetCanvasSize()
+   local maxX, maxY = CanvasSize()
 
    Color(128)
    -- draw al the vertical lines

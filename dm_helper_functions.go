@@ -35,8 +35,8 @@ func (dm *Drawing) onKeyup(ke *KeyEvent) {
 func (dm *Drawing) injectFunctions() {
 	dm.setGlobalScriptEntry("Line", dm.Line)
 	dm.setGlobalScriptEntry("Scale", dm.Scale)
-	dm.setGlobalScriptEntry("GetViewSize", dm.GetViewSize)
-	dm.setGlobalScriptEntry("GetCanvasSize", dm.GetCanvasSize)
+	dm.setGlobalScriptEntry("GridSize", dm.GridSize)
+	dm.setGlobalScriptEntry("CanvasSize", dm.CanvasSize)
 	dm.setGlobalScriptEntry("Sleep", dm.Sleep)
 	dm.setGlobalScriptEntry("Log", log.Printf)
 	dm.setGlobalScriptEntry("Quit", dm.Quit)
@@ -47,4 +47,6 @@ func (dm *Drawing) injectFunctions() {
 	dm.setGlobalScriptEntry("Push", dm.Push)
 	dm.setGlobalScriptEntry("Pop", dm.Pop)
 	dm.setGlobalScriptEntry("ProcessEvents", dm.ProcessEvents)
+	dm.setGlobalScriptEntry("Autorender", dm.Autorender)
+	dm.setGlobalScriptEntry("Frame", func() uint64 { return dm.count })
 }
