@@ -23,20 +23,27 @@ func main() {
 
 // This is the actual main function
 func run() int {
-	cfg := &Config{
-		Title:     "Goaty McWindow",
-		Width:     800,
-		Height:    600,
-		CanResize: false,
-	}
+	cfg := NewConfig()
 
-	script := setupLua(cfg)
+	script := luaLoadScript(cfg)
 
 	window, renderer := setupSDL(cfg)
 
-	drawing := CreateDrawing(renderer, script)
+	dm := CreateDrawing(renderer, script)
 
-	loop(drawing)
+	dm.bgColor = cfg.Background
+
+	dm.injectFunctions()
+
+	for dm.ProcessEvents(100) {
+
+		renderer.SetDrawColor(dm.bgColor.R, dm.bgColor.G, dm.bgColor.B, dm.bgColor.A)
+		renderer.Clear()
+
+		dm.draw()
+
+		renderer.Present()
+	}
 
 	script.Close()
 	renderer.Destroy()

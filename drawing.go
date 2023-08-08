@@ -1,142 +1,136 @@
 package main
 
 import (
-	"log"
-	"os"
-	"time"
-
 	"github.com/veandco/go-sdl2/sdl"
 	lua "github.com/yuin/gopher-lua"
-	luar "layeh.com/gopher-luar"
 )
 
-// My dreap is to do all of this:: https://github.com/fogleman/gg
+// My dream is to do all of this:: https://github.com/fogleman/gg
 
 type Drawing struct {
-	renderer   *sdl.Renderer
-	script     *lua.LState
-	drawFunc   lua.LValue
-	prevTicks  uint64
-	nowTicks   uint64
-	deltaTicks uint64
+	renderer     *sdl.Renderer // The sdl renderer we're using. It's most likely a hardware renderer.
+	script       *lua.LState   // The lua script we're running
+	drawFunc     lua.LValue    // The lua function to call to draw
+	prevTicks    uint64        // ticks when previous draw started
+	nowTicks     uint64        // ticks when current draw started
+	deltaTicks   uint64        // number of ticks the last render cycle took
+	fgColor      sdl.Color     // Foreground color. The color of the "ink" if you will
+	bgColor      sdl.Color     // Background color. The color of the "paper"
+	scaleX       float32       // How big (in pixels) are the virtual pixels in the X direction.
+	scaleY       float32       // How big (in pixels) are the virtual pixels in the Y direction.
+	frameRateCap float32       // Maximum allowed number of updates per second. - During this delay no events are processed.
+	stack        []*Drawing    // The stack that allows us to store and recall colors, scales, and other such settings.
+	count        uint64        // The number of calls to draw(). Starts at 1
+
+	keydownCallback *lua.LFunction
+	keyupCallback   *lua.LFunction
 }
 
 func CreateDrawing(renderer *sdl.Renderer, script *lua.LState) *Drawing {
-	sdl.GetTicks64()
-	renderer.SetScale(1, 1)
 
 	ticks := sdl.GetTicks64()
-	drawing := &Drawing{
-		script:     script,
-		renderer:   renderer,
-		drawFunc:   script.GetGlobal("Draw"),
-		nowTicks:   ticks,
-		prevTicks:  ticks,
-		deltaTicks: 0,
-		// keypresses, etc
+
+	dm := &Drawing{
+		script:       script,
+		renderer:     renderer,
+		drawFunc:     script.GetGlobal("Draw"),
+		nowTicks:     ticks,
+		prevTicks:    ticks,
+		deltaTicks:   0,
+		fgColor:      sdl.Color{R: 0, G: 0, B: 0, A: 255},
+		bgColor:      sdl.Color{R: 255, G: 255, B: 255, A: 255},
+		scaleX:       1,
+		scaleY:       1,
+		frameRateCap: 0,
+		stack:        make([]*Drawing, 0),
 	}
 
-	return drawing
+	dm.scaleX, dm.scaleY = renderer.GetScale()
+	dm.keydownCallback = luaFuncOrNil(script.GetGlobal("Keydown"))
+	dm.keyupCallback = luaFuncOrNil(script.GetGlobal("Keyup"))
+
+	return dm
 }
 
+// Do the draw phase of the game loop.
 func (dm *Drawing) draw() {
-	dm.prevTicks = dm.nowTicks
-	dm.nowTicks = sdl.GetTicks64()
-	dm.deltaTicks = dm.nowTicks - dm.prevTicks
+	// The number of times draw() has been called so far.
+	dm.count++
 
-	// aim for around 60 fps
-	if dm.deltaTicks < 16 {
-		delay := uint32(16 - dm.deltaTicks)
-		sdl.Delay(delay)
-		log.Printf("Delay: %d\n", delay)
+	// The high resolution time at the beginning of the cycle.
+	// It has sub-ms resolution and is usd to limit FPS
+	startTicksHq := sdl.GetPerformanceCounter()
+
+	// Conventional tick counters
+	dm.prevTicks = dm.nowTicks                 // Time when the previous update began
+	dm.nowTicks = sdl.GetTicks64()             // Time the when the current update begins
+	dm.deltaTicks = dm.nowTicks - dm.prevTicks // number of ms since last update
+
+	//
+	//********************************************
+	// Call the Draw() function
+	//********************************************
+	luaInvokeFunc("Draw()", dm.script, dm.drawFunc)
+
+	//
+	//********************************************
+	// Start framerate limit logic
+	//********************************************
+	if dm.frameRateCap <= 0 {
+		return
 	}
 
-	dm.injectVariables()
+	// The high resolution time of the end of the cycle.
+	endTicksHq := sdl.GetPerformanceCounter()
 
-	invokeLuaFunc("Draw()", dm.script, dm.drawFunc)
+	elapsedMs := float32(endTicksHq-startTicksHq) / float32(sdl.GetPerformanceFrequency()*1000)
+	wantedFrameTimeMs := 1000.0 / dm.frameRateCap
+
+	// use a raw SDL delay - no pausing to check for keyboard events.
+	// so dm.frameRateCap should not be too low.
+	sdl.Delay(uint32(wantedFrameTimeMs - elapsedMs))
 }
 
-func (dm *Drawing) injectVariables() {
-	x, y, err := dm.renderer.GetOutputSize()
-	dm.setGlobalScriptEntry("Width", x)
-	dm.setGlobalScriptEntry("Height", y)
-	dm.setGlobalScriptEntry("Ticks", dm.nowTicks)
-	dm.setGlobalScriptEntry("PrevTicks", dm.prevTicks)
-	dm.setGlobalScriptEntry("DeltaTicks", dm.deltaTicks)
-
-	if err != nil {
-		panic(err)
-	}
-
-	// keyboard events
-}
-
-func (dm *Drawing) injectFunctions() {
-	dm.setGlobalScriptEntry("Line", dm.Line)
-	dm.setGlobalScriptEntry("Scale", dm.Scale)
-	dm.setGlobalScriptEntry("GetSize", dm.GetSize)
-	dm.setGlobalScriptEntry("SleepMs", dm.SleepMs)
-	dm.setGlobalScriptEntry("Log", log.Printf)
-	dm.setGlobalScriptEntry("ForceQuit", dm.ForceQuit)
-	dm.setGlobalScriptEntry("Quit", dm.ForceQuit)
-	dm.setGlobalScriptEntry("Background", dm.Background)
-	dm.setGlobalScriptEntry("Color", dm.Color)
-}
-
-func (dm *Drawing) setGlobalScriptEntry(name string, value interface{}) {
-	dm.script.SetGlobal(
-		name,
-		luar.New(dm.script, value),
-	)
-}
-
-func (dm *Drawing) ForceQuit(code int, why string) {
-	log.Printf("ForceQuit() called from lua. Code %d, reason: %s\n", code, why)
-	os.Exit(code)
-}
-
-func (dm *Drawing) Color(r, g, b, a uint8) {
-	dm.renderer.SetDrawColor(r, g, b, a)
-}
-func (dm *Drawing) Background(c ...uint8) {
-	_x, _y, _z, _a, _ := dm.renderer.GetDrawColor()
-
+func (dm *Drawing) Color(c ...uint8) (uint8, uint8, uint8, uint8) {
 	switch len(c) {
+	case 0:
+		return dm.fgColor.R, dm.fgColor.G, dm.fgColor.B, dm.fgColor.A
 	case 1:
-		dm.renderer.SetDrawColor(c[0], c[0], c[0], 255)
+		return dm.Color(c[0], c[0], c[0], 255)
 	case 3:
-		dm.renderer.SetDrawColor(c[0], c[1], c[2], 255)
+		return dm.Color(c[0], c[1], c[2], 255)
 	case 4:
-		dm.renderer.SetDrawColor(c[0], c[1], c[2], c[3])
+		dm.fgColor = sdl.Color{R: c[0], G: c[1], B: c[2], A: c[3]}
+		return dm.Color()
 	default:
 		panic("Background() takes 1, 3, or 4 arguments.")
-
 	}
-	dm.renderer.Clear()
-	dm.renderer.SetDrawColor(_x, _y, _z, _a)
 }
-
-func (dm *Drawing) Quit() {
-	sdl.PushEvent(
-		&sdl.QuitEvent{
-			Type:      sdl.QUIT,
-			Timestamp: uint32(sdl.GetTicks64()),
-		},
-	)
+func (dm *Drawing) Background(c ...uint8) {
+	switch len(c) {
+	case 1:
+		dm.Background(c[0], c[0], c[0], 255)
+	case 3:
+		dm.Background(c[0], c[1], c[2], 255)
+	case 4:
+		dm.bgColor = sdl.Color{R: c[0], G: c[1], B: c[2], A: c[3]}
+	default:
+		panic("Background() takes 1, 3, or 4 arguments.")
+	}
 }
 
 func (dm *Drawing) Scale(scale float32) {
+	dm.scaleX = scale
+	dm.scaleY = scale
 	dm.renderer.SetScale(scale, scale)
 }
 
 func (dm *Drawing) Line(x1, y1, x2, y2 float32) {
+	dm.applySettingsToRenderer()
 	dm.renderer.DrawLineF(x1, y1, x2, y2)
 }
 
-func (dm *Drawing) GetSize() sdl.Rect {
-	return dm.renderer.GetViewport()
-}
-
-func (dm *Drawing) SleepMs(ms int) {
-	time.Sleep(time.Duration(ms) * time.Millisecond)
+func (dm *Drawing) Dot(x, y float32) {
+	dm.applySettingsToRenderer()
+	dm.renderer.DrawPointF(x, y)
 }

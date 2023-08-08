@@ -1,72 +1,227 @@
 ---@diagnostic disable: undefined-global
-function Setup()
-   Width(2000)
-   Height(600)
-   Title("Helmuth")
-   CanResize()
+
+local squareCount = 0 -- number of squares in each direction
+local pixelsPerSquare = 0 -- number of pixels per square
+
+local snake = {
+   alive = true,
+   headX = 0,
+   headY = 0,
+   direction = 0, -- 0 = north, 1 = east, 2 = south, 3 = west
+   justAte = false,
+   tail = {},
+   food = {-1, -1},
+   commandQueue = {}
+}
+
+snake.shuffleFood = function (self)
+   for i=1000, 0, -1 do
+      self.food[1] = math.random(0, squareCount)
+      self.food[2] = math.random(0, squareCount)
+
+      if self:canPlaceFood(self.food) then
+         return true
+      end
+   end
+   error("Could not place food after 1000 tries")
 end
 
--- D for draw, S for system
-local bgRed = 20
-local bgGreen = 20
-local bgBlue = 20
+snake.getVelocity = function(self)
+   -- we do this to make a visually appealing snake death
+   if false == self.alive then
+      return 0, 0
+   end
 
-local fgRed = 200
-local fgGreen = 200
-local fgBlue = 200
+   if 0 == self.direction then
+      return 0, -1
+   elseif 1 == self.direction then
+      return 1, 0
+   elseif 2 == self.direction then
+      return 0, 1
+   elseif 3 == self.direction then
+      return -1, 0
+   else
+      error("Dir should be between 0 and 3, inclusive")
+   end
+end
 
-local scale = 1
+snake.move = function(self)
+
+   -- I've turned this off because i want to see the snake
+   -- eat itself slowly.
+   -- if not self.alive then
+   --    return
+   -- end
+
+   -- if we have unprocessed keyboard input commands,
+   -- process the oldest one and remove it from the queue.
+   if #self.commandQueue > 0 then
+      local change = table.remove(self.commandQueue, 0)
+      self.direction = (self.direction + change) % 4
+   end
+
+
+   -- first we move the entire tail without moving the head
+   -- then we move the head to its new location
+   -- we simply do this by only moving the tip of the tail
+   -- to where the head is
+   table.insert(self.tail, 1, { self.headX, self.headY, })
+   if self.justAte then
+      -- we just ate, so we dont delete our tail tip
+      self.justAte = false
+   else
+      table.remove(self.tail)
+   end
+
+   local dX, dY = self:getVelocity()
+   self.headX = (self.headX + dX) % squareCount
+   self.headY = (self.headY + dY) % squareCount
+
+   for i, v in ipairs(self.tail) do
+      if v[1] == self.headX and v[2] == self.headY then
+         self:die()
+      end
+   end
+end
+
+snake.canPlaceFood = function(self, point)
+   if point[1] == self.headX and point[2] == self.headY then
+      return false
+   end
+
+   local maxX, maxY = GetViewSize()
+
+   if point[1] < 0 or point[1] >= maxX then
+      return false
+   end
+   if point[2] < 0 or point[2] >= maxY then
+      return false
+   end
+
+   for i, v in ipairs(self.tail) do
+      if point[1] == v[1] and point[2] == v[2] then
+         return false
+      end
+   end
+
+   return true
+end
+
+snake.draw = function(self)
+   Color(0)
+   Dot(self.headX, self.headY)
+   for i, v in ipairs(self.tail) do
+      Dot(v[1], v[2])
+   end
+end
+
+snake.drawFood = function(self)
+   Color(0, 255, 0)
+   Dot(self.food[1], self.food[2])
+end
+
+snake.canEat = function(self)
+   if self.headX == self.food[1] and self.headY == self.food[2] then
+      return true
+   end
+
+   return false
+end
+
+snake.eat = function(self)
+   if not self:canEat() then
+      return
+   end
+   self:grow()
+   self:shuffleFood()
+end
+
+snake.grow = function(self)
+   table.insert(self.tail, { self.headX, self.headY })
+end
+
+snake.die = function(self)
+   Background(255, 0, 0, 255)
+   self.alive = false
+end
+
+snake.addToCommandQueue = function(self, num)
+   if #self.commandQueue > 2 then
+      return
+   end
+
+   table.insert(self.commandQueue, num)
+end
+
+function Setup()
+   squareCount = 30 -- we want 30 squares in the x direction and 30 squares in the y direction
+
+   cfg.Width = 1500
+   cfg.Height = 1500
+   cfg.Title = "Helmuth"
+   cfg.CanResize = false
+   cfg.Scale = cfg.Width / squareCount
+   pixelsPerSquare = cfg.Scale
+   cfg.Background.R = 220
+   cfg.Background.G = 220
+   cfg.Background.B = 220
+   ------------------------
+   --TODO
+   -----------------------
+   -- cfg.WantKeydownRepeat
+
+   snake.headX = math.floor(squareCount / 2)
+   snake.headY = math.floor(squareCount / 2)
+
+   -- we cant call shuffleFood because it relies on screen size
+   snake.food[1] = math.random(1, squareCount - 2)
+   snake.food[2] = math.random(1, squareCount - 2)
+end
+
+function Keydown(k)
+   if k.Str == "Escape" then
+      Quit()
+   elseif k.Str == "Space" then
+      snake:grow()
+   elseif k.Left then
+      snake:addToCommandQueue(-1) -- turn left
+   elseif k.Right then
+      snake:addToCommandQueue(1) -- turn right
+   elseif k.Str == "D" then
+      snake.alive = false
+   end
+end
+
 
 function Draw()
-   RandomizeColors()
+   Sleep(250)
 
-   Background(bgRed, bgGreen, bgBlue, 255)
+   -- Scale(pixelsPerSquare)
+   snake:eat()
+   snake:move()
+   snake:draw()
+   snake:drawFood()
 
-   Color(fgRed, fgGreen, fgBlue, 255)
 
-   Scale(scale)
+   ---------------------
+   --    DRAW GRID    --
+   ---------------------
 
-   Line(0, 0, Width, Height)
-end
+   Push()
+   Scale(1)
+   Color(30)
 
-function RandomizeColors()
-   if math.random(2, 30) > scale then
-      scale = scale + 1
-   else
-      scale = scale - 1
-   end
-   if scale <= 1 then
-      scale = 2
+   local maxX, maxY = GetCanvasSize()
+
+   Color(128)
+   -- draw al the vertical lines
+   for _x = pixelsPerSquare, maxX, pixelsPerSquare do
+      Line(_x, 0, _x, maxY)
    end
 
-   if math.random(1, 255) > bgRed then
-      bgRed = bgRed + 1
-   else
-      bgRed = bgRed - 1
+   -- draw all the horizontal lines
+   for _y = pixelsPerSquare, maxY, pixelsPerSquare do
+      Line(0, _y, maxX, _y)
    end
-   if math.random(1, 255) > bgGreen then
-      bgGreen = bgGreen + 1
-   else
-      bgGreen = bgGreen - 1
-   end
-   if math.random(1, 255) > bgBlue then
-      bgBlue = bgBlue + 1
-   else
-      bgBlue = bgBlue - 1
-   end
-   if math.random(1, 255) > fgRed then
-      fgRed = fgRed + 1
-   else
-      fgRed = fgRed - 1
-   end
-   if math.random(1, 255) > fgGreen then
-      fgGreen = fgGreen + 1
-   else
-      fgGreen = fgGreen - 1
-   end
-   if math.random(1, 255) > fgBlue then
-      fgBlue = fgBlue + 1
-   else
-      fgBlue = fgBlue - 1
-   end
+   Pop()
 end
