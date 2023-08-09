@@ -8,6 +8,7 @@ local foodColor      = { 0,  150,   0, 255 }
 local deadBgColor    = { 160,  0,   0, 255 }
 local deadSnakeColor = { 20,  10,  10, 255 }
 local deadFoodColor  = { 10,  60,  10, 255 }
+local gridColor      = { 128,128, 128, 255 }
 
 local snake = {
    alive = true,
@@ -199,12 +200,6 @@ function Keydown(k)
 end
 
 function Draw()
-
-   Background(220)
-   Color(20)
-   Dot(10, 10)
-
---[[
    if Counter() > 1 then
       Sleep(250)
    end
@@ -222,7 +217,7 @@ function Draw()
 
    local maxX, maxY = CanvasSize()
 
-   -- Color(128, 0, 0, 255)
+   Color(unpack(gridColor))
 
    -- draw al the vertical lines
    for _x = pixelsPerSquare, maxX, pixelsPerSquare do
@@ -233,5 +228,4 @@ function Draw()
    for _y = pixelsPerSquare, maxY, pixelsPerSquare do
       Line(0, _y, maxX, _y)
    end
-   --]]
 end

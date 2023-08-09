@@ -56,6 +56,8 @@ func run() int {
 		renderer.Clear()
 
 		dm.draw()
+
+		renderer.Present()
 	}
 
 	script.Close()

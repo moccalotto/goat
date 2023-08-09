@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"github.com/veandco/go-sdl2/sdl"
 	lua "github.com/yuin/gopher-lua"
 )
@@ -146,6 +148,8 @@ func (dm *Drawing) Line(x1, y1, x2, y2 float32) {
 
 func (dm *Drawing) Dot(x, y float32) {
 	dm.applySettingsToRenderer()
+	log.Printf("Dot: %.1f, %.1f", x, y)
+	log.Printf("%+v", dm.fgColor)
 	dm.renderer.DrawPointF(x, y)
 }
 
