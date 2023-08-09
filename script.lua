@@ -3,6 +3,13 @@
 local squareCount = 0 -- number of squares in each direction
 local pixelsPerSquare = 0 -- number of pixels per square
 
+local snakeColor  = { 0, 0, 0 }
+local foodColor   = { 0, 150, 0, 128 }
+
+local deadBgColor    = { 160, 0, 0 }
+local deadSnakeColor = { 20, 10, 10 }
+local deadFoodColor  = { 10, 60, 10 }
+
 local snake = {
    alive = true,
    headX = 0,
@@ -77,9 +84,9 @@ snake.move = function(self)
    self.headX = (self.headX + dX) % squareCount
    self.headY = (self.headY + dY) % squareCount
 
-   for i, v in ipairs(self.tail) do
+   for _, v in ipairs(self.tail) do
       if v[1] == self.headX and v[2] == self.headY then
-         self:die()
+         self:dead()
       end
    end
 end
@@ -98,7 +105,7 @@ snake.canPlaceFood = function(self, point)
       return false
    end
 
-   for i, v in ipairs(self.tail) do
+   for _, v in ipairs(self.tail) do
       if point[1] == v[1] and point[2] == v[2] then
          return false
       end
@@ -108,15 +115,23 @@ snake.canPlaceFood = function(self, point)
 end
 
 snake.draw = function(self)
-   Color(0)
+   if self.alive then
+      Color(unpack(snakeColor))
+   else
+      Color(unpack(deadSnakeColor))
+   end
    Dot(self.headX, self.headY)
-   for i, v in ipairs(self.tail) do
+   for _, v in ipairs(self.tail) do
       Dot(v[1], v[2])
    end
 end
 
 snake.drawFood = function(self)
-   Color(0, 255, 0)
+   if self.alive  then
+      Color(unpack(foodColor))
+   else
+      Color(unpack(deadFoodColor))
+   end
    Dot(self.food[1], self.food[2])
 end
 
@@ -140,8 +155,8 @@ snake.grow = function(self)
    table.insert(self.tail, { self.headX, self.headY })
 end
 
-snake.die = function(self)
-   Background(255, 0, 0, 255)
+snake.dead = function(self)
+   Background(unpack(deadBgColor))
    self.alive = false
 end
 
@@ -153,29 +168,19 @@ snake.addToCommandQueue = function(self, num)
    table.insert(self.commandQueue, num)
 end
 
+function Winfo(w) 
+   return w
+end
+
 function Setup()
+   SetWinSize(1500, 1500, true)
+   SetWinTitle("Snurk")
+
    squareCount = 30 -- we want 30 squares in the x direction and 30 squares in the y direction
 
-   cfg.Width = 1500
-   cfg.Height = 1500
-   cfg.Title = "Helmuth"
-   cfg.CanResize = false
-   cfg.Scale = cfg.Width / squareCount
-   pixelsPerSquare = cfg.Scale
-   cfg.Background.R = 220
-   cfg.Background.G = 220
-   cfg.Background.B = 220
-   ------------------------
-   --TODO
-   -----------------------
-   -- cfg.WantKeydownRepeat
+   Background(220)
 
-   snake.headX = math.floor(squareCount / 2)
-   snake.headY = math.floor(squareCount / 2)
-
-   -- we cant call shuffleFood because it relies on screen size
-   snake.food[1] = math.random(1, squareCount - 2)
-   snake.food[2] = math.random(1, squareCount - 2)
+   snake:shuffleFood()
 end
 
 function Keydown(k)
@@ -192,16 +197,18 @@ function Keydown(k)
    end
 end
 
-
 function Draw()
-   Sleep(250)
 
-   -- Scale(pixelsPerSquare)
+   if Counter() > 1 then
+      Sleep(250)
+   end
+
+   Push()
    snake:eat()
    snake:move()
-   snake:draw()
    snake:drawFood()
-
+   snake:draw()
+   Pop()
 
    ---------------------
    --    DRAW GRID    --
@@ -209,11 +216,11 @@ function Draw()
 
    Push()
    Scale(1)
-   Color(30)
 
    local maxX, maxY = CanvasSize()
 
    Color(128)
+
    -- draw al the vertical lines
    for _x = pixelsPerSquare, maxX, pixelsPerSquare do
       Line(_x, 0, _x, maxY)

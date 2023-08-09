@@ -3,6 +3,6 @@
         "counter"
     ],
     "Lua.workspace.library": [],
-    "Lua.runtime.version": "LuaJIT",
+    "Lua.runtime.version": "Lua 5.1",
     "Lua.workspace.checkThirdParty": false
 }

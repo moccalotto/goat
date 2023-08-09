@@ -24,7 +24,7 @@ type Drawing struct {
 	scaleY       float32       // How big (in pixels) are the virtual pixels in the Y direction.
 	frameRateCap float32       // Maximum allowed number of updates per second. - During this delay no events are processed.
 	stack        []*Drawing    // The stack that allows us to store and recall colors, scales, and other such settings.
-	count        uint64        // The number of calls to draw(). Starts at 1
+	frameCount   uint64        // The number of calls to draw(). Starts at 1
 	autorender   int           // Should render be called automatically at the end of every draw() ?
 
 	keydownCallback *lua.LFunction
@@ -57,10 +57,20 @@ func CreateDrawing(renderer *sdl.Renderer, script *lua.LState) *Drawing {
 	return dm
 }
 
+// Call the setup() function before the first frame is framed
+func (dm *Drawing) setup() {
+	if dm.frameCount > 0 {
+		return
+	}
+
+	setupFunc := dm.script.GetGlobal("Setup")
+	luaInvokeFunc("Setup()", dm.script, setupFunc)
+}
+
 // Do the draw phase of the game loop.
 func (dm *Drawing) draw() {
 	// The number of times draw() has been called so far.
-	dm.count++
+	dm.frameCount++
 
 	// The high resolution time at the beginning of the cycle.
 	// It has sub-ms resolution and is usd to limit FPS

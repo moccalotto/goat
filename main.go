@@ -23,20 +23,32 @@ func main() {
 
 // This is the actual main function
 func run() int {
-	cfg := NewConfig()
+	script := luaLoadScript()
 
-	script := luaLoadScript(cfg)
-
-	window, renderer := setupSDL(cfg)
+	window, renderer := setupSDL()
 
 	dm := CreateDrawing(renderer, script)
 
-	dm.bgColor = cfg.Background
+	/* 	NEXT STEPS
+	ROTATION MATRIX
+	does what it says on the tin
+
+	ENTITIES
+	an entity is a simple shape (initially)
+	It has a location, one or two colors, and a few other parameters.
+	It can be ephemeral - so it is removed right after renedering - or it can persist
+	You can chose to execute its draw instructions right away, or when the Draw() is at an end
+		* Dot (Size, Location, Color)
+		* Line (Stroke Width, Stroke Color, Location, Length, Rotation)
+		* Circle (fill color, stroke thickness, stroke color, location, size)
+		* Ellipse (fill color, stroke thickness, stroke color location, size_a, size_b, rotation)
+		* Rectange (fill color, stroke thickness, stroke color, corner_radius, location, size_a, size_b, rotation)
+		* Image
+	*/
 
 	dm.injectFunctions()
 
-	// dm.beforeFirstDraw() -- a function that is called just before the loop starts,
-	// but after setup, so that the renderer and alle the settings are ready to rock.
+	dm.setup()
 
 	for dm.ProcessEvents(100) {
 
