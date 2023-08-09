@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log"
-
 	"github.com/veandco/go-sdl2/sdl"
 	lua "github.com/yuin/gopher-lua"
 )
@@ -64,49 +62,6 @@ func (dm *Drawing) setup() {
 	luaInvokeFunc("Setup()", dm.script, setupFunc)
 }
 
-// Do the draw phase of the game loop.
-func (dm *Drawing) draw() {
-	// The number of times draw() has been called so far.
-	dm.frameCount++
-
-	// The high resolution time at the beginning of the cycle.
-	// It has sub-ms resolution and is usd to limit FPS
-	startTicksHq := sdl.GetPerformanceCounter()
-
-	// Conventional tick counters
-	dm.prevTicks = dm.nowTicks                 // Time when the previous update began
-	dm.nowTicks = sdl.GetTicks64()             // Time the when the current update begins
-	dm.deltaTicks = dm.nowTicks - dm.prevTicks // number of ms since last update
-
-	//
-	//********************************************
-	// Call the Draw() function
-	//********************************************
-	luaInvokeFunc("Draw()", dm.script, dm.drawFunc)
-
-	if len(dm.stack) > 0 {
-		panic("You must call Pop() as many times as you have called Push()")
-	}
-
-	//
-	//********************************************
-	// Start framerate limit logic
-	//********************************************
-	if dm.frameRateCap <= 0 {
-		return
-	}
-
-	// The high resolution time of the end of the cycle.
-	endTicksHq := sdl.GetPerformanceCounter()
-
-	elapsedMs := float32(endTicksHq-startTicksHq) / float32(sdl.GetPerformanceFrequency()*1000)
-	wantedFrameTimeMs := 1000.0 / dm.frameRateCap
-
-	// use a raw SDL delay - no pausing to check for keyboard events.
-	// so dm.frameRateCap should not be too low.
-	sdl.Delay(uint32(wantedFrameTimeMs - elapsedMs))
-}
-
 func (dm *Drawing) Color(c ...uint8) (uint8, uint8, uint8, uint8) {
 	switch len(c) {
 	case 0:
@@ -148,16 +103,27 @@ func (dm *Drawing) Line(x1, y1, x2, y2 float32) {
 
 func (dm *Drawing) Dot(x, y float32) {
 	dm.applySettingsToRenderer()
-	log.Printf("Dot: %.1f, %.1f", x, y)
-	log.Printf("%+v", dm.fgColor)
 	dm.renderer.DrawPointF(x, y)
 }
 
 func (dm *Drawing) Rectangle(x1, y1, x2, y2 float32) {
-	dm.renderer.DrawRectF(&sdl.FRect{
-		X: x1,
-		Y: y1,
-		H: y2 - y1,
-		W: x2 - x1,
-	})
+	dm.applySettingsToRenderer()
+
+	vertices := []sdl.Vertex{
+		{sdl.FPoint{x1, y1}, dm.fgColor, sdl.FPoint{0, 0}},
+		{sdl.FPoint{x2, y1}, dm.fgColor, sdl.FPoint{0, 0}},
+		{sdl.FPoint{x2, y2}, dm.fgColor, sdl.FPoint{0, 0}},
+
+		{sdl.FPoint{x2, y2}, dm.fgColor, sdl.FPoint{0, 0}},
+		{sdl.FPoint{x1, y2}, dm.fgColor, sdl.FPoint{0, 0}},
+		{sdl.FPoint{x1, y1}, dm.fgColor, sdl.FPoint{0, 0}},
+	}
+	dm.renderer.RenderGeometry(nil, vertices, nil)
+
+	// dm.renderer.DrawRectF(&sdl.FRect{
+	// 	X: x1,
+	// 	Y: y1,
+	// 	H: y2 - y1,
+	// 	W: x2 - x1,
+	// })
 }

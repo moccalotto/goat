@@ -25,6 +25,8 @@ func main() {
 func run() int {
 	script := luaLoadScript()
 
+	// todo: switch to sfml https://www.sfml-dev.org/
+	// 	     https://github.com/SFML/SFML
 	window, renderer := setupSDL()
 
 	dm := CreateDrawing(renderer, script)
@@ -52,12 +54,7 @@ func run() int {
 
 	for dm.ProcessEvents(100) {
 
-		renderer.SetDrawColor(dm.bgColor.R, dm.bgColor.G, dm.bgColor.B, dm.bgColor.A)
-		renderer.Clear()
-
 		dm.draw()
-
-		renderer.Present()
 	}
 
 	script.Close()

@@ -32,7 +32,7 @@ func (dm *Drawing) onKeyup(ke *KeyEvent) {
 	luaInvokeFunc("Keyup", dm.script, dm.keyupCallback, luar.New(dm.script, ke))
 }
 
-func (dm *Drawing) SetWinSize(x, y int32, center ...bool) {
+func (dm *Drawing) WinSize(x, y int32, center ...bool) {
 	w, err := dm.renderer.GetWindow()
 
 	if err != nil {
@@ -51,7 +51,7 @@ func (dm *Drawing) SetWinSize(x, y int32, center ...bool) {
 	}
 }
 
-func (dm *Drawing) SetWinTitle(title string) {
+func (dm *Drawing) WinTitle(title string) {
 	w, err := dm.renderer.GetWindow()
 
 	if err != nil {
@@ -64,24 +64,24 @@ func (dm *Drawing) SetWinTitle(title string) {
 // Functions sare injected into the script only once.
 func (dm *Drawing) injectFunctions() {
 
-	dm.setGlobalScriptEntry("SetWinSize", dm.SetWinSize)
-	dm.setGlobalScriptEntry("SetWinTitle", dm.SetWinTitle)
+	dm.setGlobalScriptEntry("WinSize", dm.WinSize)
+	dm.setGlobalScriptEntry("WinTitle", dm.WinTitle)
+	dm.setGlobalScriptEntry("ProcessEvents", dm.ProcessEvents)
 
-	dm.setGlobalScriptEntry("Line", dm.Line)
-	dm.setGlobalScriptEntry("Scale", dm.Scale)
 	dm.setGlobalScriptEntry("GridSize", dm.GridSize)
 	dm.setGlobalScriptEntry("CanvasSize", dm.CanvasSize)
 	dm.setGlobalScriptEntry("Sleep", dm.Sleep)
 	dm.setGlobalScriptEntry("Log", log.Printf)
 	dm.setGlobalScriptEntry("Quit", dm.Quit)
 	dm.setGlobalScriptEntry("ForceQuit", dm.ForceQuit)
-	dm.setGlobalScriptEntry("Background", dm.Background)
+	dm.setGlobalScriptEntry("FrameCount", func() uint64 { return dm.frameCount })
+
+	dm.setGlobalScriptEntry("Scale", dm.Scale)
 	dm.setGlobalScriptEntry("Color", dm.Color)
+	dm.setGlobalScriptEntry("Background", dm.Background)
 	dm.setGlobalScriptEntry("Dot", dm.Dot)
 	dm.setGlobalScriptEntry("Push", dm.Push)
 	dm.setGlobalScriptEntry("Pop", dm.Pop)
-	dm.setGlobalScriptEntry("ProcessEvents", dm.ProcessEvents)
+	dm.setGlobalScriptEntry("Line", dm.Line)
 	dm.setGlobalScriptEntry("Rectangle", dm.Rectangle)
-	dm.setGlobalScriptEntry("Counter", func() uint64 { return dm.frameCount })
-
 }
