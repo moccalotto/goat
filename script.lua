@@ -3,12 +3,11 @@
 local squareCount = 0 -- number of squares in each direction
 local pixelsPerSquare = 0 -- number of pixels per square
 
-local snakeColor  = { 0, 0, 0 }
-local foodColor   = { 0, 150, 0, 128 }
-
-local deadBgColor    = { 160, 0, 0 }
-local deadSnakeColor = { 20, 10, 10 }
-local deadFoodColor  = { 10, 60, 10 }
+local snakeColor     = { 0,    0,   0, 255 }
+local foodColor      = { 0,  150,   0, 255 }
+local deadBgColor    = { 160,  0,   0, 255 }
+local deadSnakeColor = { 20,  10,  10, 255 }
+local deadFoodColor  = { 10,  60,  10, 255 }
 
 local snake = {
    alive = true,
@@ -116,9 +115,9 @@ end
 
 snake.draw = function(self)
    if self.alive then
-      Color(unpack(snakeColor))
+      Color( snakeColor[1], snakeColor[2], snakeColor[3], snakeColor[4])
    else
-      Color(unpack(deadSnakeColor))
+      Color( deadSnakeColor[1], deadSnakeColor[2], deadSnakeColor[3], deadSnakeColor[4])
    end
    Dot(self.headX, self.headY)
    for _, v in ipairs(self.tail) do
@@ -128,9 +127,9 @@ end
 
 snake.drawFood = function(self)
    if self.alive  then
-      Color(unpack(foodColor))
+      Color(foodColor[1], foodColor[2], foodColor[3], foodColor[4])
    else
-      Color(unpack(deadFoodColor))
+      Color(deadFoodColor[1], deadFoodColor[2], deadFoodColor[3], deadFoodColor[4])
    end
    Dot(self.food[1], self.food[2])
 end
@@ -156,7 +155,7 @@ snake.grow = function(self)
 end
 
 snake.dead = function(self)
-   Background(unpack(deadBgColor))
+   Background(deadBgColor[1], deadBgColor[2], deadBgColor[3], deadBgColor[4])
    self.alive = false
 end
 
@@ -173,10 +172,12 @@ function Winfo(w)
 end
 
 function Setup()
-   SetWinSize(1500, 1500, true)
+   local winSizePx = 1500
+   SetWinSize(winSizePx, winSizePx, true)
    SetWinTitle("Snurk")
 
    squareCount = 30 -- we want 30 squares in the x direction and 30 squares in the y direction
+   pixelsPerSquare = winSizePx / squareCount
 
    Background(220)
 
@@ -199,27 +200,29 @@ end
 
 function Draw()
 
+   Background(220)
+   Color(20)
+   Dot(10, 10)
+
+--[[
    if Counter() > 1 then
       Sleep(250)
    end
 
-   Push()
    snake:eat()
    snake:move()
    snake:drawFood()
    snake:draw()
-   Pop()
-
+   
    ---------------------
    --    DRAW GRID    --
    ---------------------
 
-   Push()
    Scale(1)
 
    local maxX, maxY = CanvasSize()
 
-   Color(128)
+   -- Color(128, 0, 0, 255)
 
    -- draw al the vertical lines
    for _x = pixelsPerSquare, maxX, pixelsPerSquare do
@@ -230,5 +233,5 @@ function Draw()
    for _y = pixelsPerSquare, maxY, pixelsPerSquare do
       Line(0, _y, maxX, _y)
    end
-   Pop()
+   --]]
 end

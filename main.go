@@ -56,14 +56,6 @@ func run() int {
 		renderer.Clear()
 
 		dm.draw()
-
-		if dm.autorender == AUTORENDER_ALWAYS {
-			renderer.Present()
-		}
-		if dm.autorender == AUTORENDER_SKIP_ONCE {
-			dm.autorender = AUTORENDER_ALWAYS
-		}
-
 	}
 
 	script.Close()

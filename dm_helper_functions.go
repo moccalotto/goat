@@ -81,7 +81,6 @@ func (dm *Drawing) injectFunctions() {
 	dm.setGlobalScriptEntry("Push", dm.Push)
 	dm.setGlobalScriptEntry("Pop", dm.Pop)
 	dm.setGlobalScriptEntry("ProcessEvents", dm.ProcessEvents)
-	dm.setGlobalScriptEntry("Autorender", dm.Autorender)
 	dm.setGlobalScriptEntry("Rectangle", dm.Rectangle)
 	dm.setGlobalScriptEntry("Counter", func() uint64 { return dm.frameCount })
 

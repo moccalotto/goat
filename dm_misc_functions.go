@@ -149,7 +149,3 @@ func (dm *Drawing) Pop() {
 	// bookkeeping: settings have been changed and we need to notify SDL
 	dm.renderer.SetScale(dm.scaleX, dm.scaleY)
 }
-
-func (dm *Drawing) Autorender(autorender int) {
-	dm.autorender = autorender
-}

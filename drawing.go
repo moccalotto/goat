@@ -5,10 +5,6 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-const AUTORENDER_NEVER = -1
-const AUTORENDER_ALWAYS = 1
-const AUTORENDER_SKIP_ONCE = 0
-
 // My dream is to do all of this:: https://github.com/fogleman/gg
 
 type Drawing struct {
@@ -25,7 +21,6 @@ type Drawing struct {
 	frameRateCap float32       // Maximum allowed number of updates per second. - During this delay no events are processed.
 	stack        []*Drawing    // The stack that allows us to store and recall colors, scales, and other such settings.
 	frameCount   uint64        // The number of calls to draw(). Starts at 1
-	autorender   int           // Should render be called automatically at the end of every draw() ?
 
 	keydownCallback *lua.LFunction
 	keyupCallback   *lua.LFunction
@@ -86,6 +81,10 @@ func (dm *Drawing) draw() {
 	// Call the Draw() function
 	//********************************************
 	luaInvokeFunc("Draw()", dm.script, dm.drawFunc)
+
+	if len(dm.stack) > 0 {
+		panic("You must call Pop() as many times as you have called Push()")
+	}
 
 	//
 	//********************************************

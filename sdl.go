@@ -33,7 +33,5 @@ func setupSDL() (*sdl.Window, *sdl.Renderer) {
 	if err != nil {
 		log.Fatalf("Could not create SDL renderer: %+v", err)
 	}
-
-	print(sdl.GLGetAttribute(sdl.GL_GREEN_SIZE))
 	return window, renderer
 }
