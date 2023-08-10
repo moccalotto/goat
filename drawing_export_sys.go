@@ -1,3 +1,8 @@
+/*****************************************
+ * Contains all exported
+ * functions that are "system" related.
+ *****************************************/
+
 package main
 
 import (
@@ -148,4 +153,33 @@ func (dm *Drawing) Pop() {
 
 	// bookkeeping: settings have been changed and we need to notify SDL
 	dm.renderer.SetScale(dm.scaleX, dm.scaleY)
+}
+
+func (dm *Drawing) WinSize(x, y int32, center ...bool) {
+	w, err := dm.renderer.GetWindow()
+
+	if err != nil {
+		panic(err)
+	}
+
+	if x > 0 && y > 0 {
+		w.SetSize(x, y)
+	}
+
+	if len(center) > 0 && center[0] {
+		w.SetPosition(
+			sdl.WINDOWPOS_CENTERED,
+			sdl.WINDOWPOS_CENTERED,
+		)
+	}
+}
+
+func (dm *Drawing) WinTitle(title string) {
+	w, err := dm.renderer.GetWindow()
+
+	if err != nil {
+		panic(err)
+	}
+
+	w.SetTitle(title)
 }

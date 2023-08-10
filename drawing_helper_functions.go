@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 
-	"github.com/veandco/go-sdl2/sdl"
 	luar "layeh.com/gopher-luar"
 )
 
@@ -30,35 +29,6 @@ func (dm *Drawing) onKeydown(ke *KeyEvent) {
 // triggered whenever our game loop receives a keyup event
 func (dm *Drawing) onKeyup(ke *KeyEvent) {
 	luaInvokeFunc("Keyup", dm.script, dm.keyupCallback, luar.New(dm.script, ke))
-}
-
-func (dm *Drawing) WinSize(x, y int32, center ...bool) {
-	w, err := dm.renderer.GetWindow()
-
-	if err != nil {
-		panic(err)
-	}
-
-	if x > 0 && y > 0 {
-		w.SetSize(x, y)
-	}
-
-	if len(center) > 0 && center[0] {
-		w.SetPosition(
-			sdl.WINDOWPOS_CENTERED,
-			sdl.WINDOWPOS_CENTERED,
-		)
-	}
-}
-
-func (dm *Drawing) WinTitle(title string) {
-	w, err := dm.renderer.GetWindow()
-
-	if err != nil {
-		panic(err)
-	}
-
-	w.SetTitle(title)
 }
 
 // Functions sare injected into the script only once.
