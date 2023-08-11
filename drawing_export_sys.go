@@ -183,3 +183,17 @@ func (dm *Drawing) WinTitle(title string) {
 
 	w.SetTitle(title)
 }
+
+func (dm *Drawing) Pause() {
+	log.Print("Pause()")
+	dm.paused = true
+}
+
+func (dm *Drawing) Resume() {
+	log.Print("Resume()")
+	dm.paused = false
+}
+
+func (dm *Drawing) FrameRateCap(val float32) {
+	dm.frameRateCap = val
+}

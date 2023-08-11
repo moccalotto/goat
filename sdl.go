@@ -29,6 +29,7 @@ func setupSDL() (*sdl.Window, *sdl.Renderer) {
 		-1, // TODO: select the opengl driver.
 		sdl.RENDERER_ACCELERATED|sdl.RENDERER_PRESENTVSYNC,
 	)
+	renderer.SetDrawBlendMode(sdl.BLENDMODE_BLEND)
 
 	if err != nil {
 		log.Fatalf("Could not create SDL renderer: %+v", err)

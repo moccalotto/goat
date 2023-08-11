@@ -8,6 +8,7 @@ import (
 
 func main() {
 	exitCode := 0
+	defer os.Exit(exitCode)
 
 	// Tell SDL that we're currently in the main
 	// thread, and that our main program code should
@@ -17,8 +18,6 @@ func main() {
 	sdl.Main(func() {
 		exitCode = run()
 	})
-
-	os.Exit(exitCode)
 }
 
 // This is the actual main function
@@ -48,13 +47,14 @@ func run() int {
 		* Image
 	*/
 
-	dm.injectFunctions()
+	dm.exportFunctions()
 
 	dm.setup()
 
 	for dm.ProcessEvents(100) {
 
 		dm.draw()
+
 	}
 
 	script.Close()
