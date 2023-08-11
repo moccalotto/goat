@@ -34,7 +34,7 @@ local doneCount = 0
 -- Library imports.
 -- don't touch
 ---------------------------
-local dumpTable = require("dumpTable").dumpTable
+dumpTable = require("dumpTable").dumpTable
 
 
 local function createRocket()
