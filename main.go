@@ -22,13 +22,14 @@ func main() {
 
 // This is the actual main function
 func run() int {
-	script := luaLoadScript()
 
-	// todo: switch to sfml https://www.sfml-dev.org/
-	// 	     https://github.com/SFML/SFML
-	window, renderer := setupSDL()
+	window, renderer := setupSDL() // could switch to sfml, but cant get it to compile.
+	defer window.Destroy()
+	defer renderer.Destroy()
+	defer sdl.Quit()
 
-	dm := CreateDrawing(renderer, script)
+	dm := CreateDrawing(renderer, "script.lua")
+	defer dm.Destroy()
 
 	/* 	NEXT STEPS
 	ROTATION MATRIX
@@ -47,20 +48,13 @@ func run() int {
 		* Image
 	*/
 
-	dm.exportFunctions()
-
-	dm.setup()
+	dm.CallSetupFunc()
 
 	for dm.ProcessEvents(100) {
 
-		dm.draw()
+		dm.CallDrawFunc()
 
 	}
-
-	script.Close()
-	renderer.Destroy()
-	window.Destroy()
-	sdl.Quit()
 
 	return 0
 }

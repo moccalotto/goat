@@ -197,3 +197,19 @@ func (dm *Drawing) Resume() {
 func (dm *Drawing) FrameRateCap(val float32) {
 	dm.frameRateCap = val
 }
+
+func (dm *Drawing) Dump(x ...interface{}) {
+	for i, v := range x {
+		log.Printf("Dump%3d: %+v", i, v)
+	}
+}
+
+func (dm *Drawing) HasKey(name string) bool {
+	code := sdl.GetScancodeFromName(name)
+
+	states := sdl.GetKeyboardState()
+
+	// dm.Dump(states)
+
+	return states[code] != 0
+}

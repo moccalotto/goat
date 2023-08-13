@@ -13,6 +13,7 @@ import (
 type Drawing struct {
 	renderer     *sdl.Renderer // The sdl renderer we're using. It's most likely a hardware renderer.
 	script       *lua.LState   // The lua script we're running
+	scriptFile   string        // filename of the lua script
 	drawFunc     lua.LValue    // The lua function to call to draw
 	prevTicks    uint64        // ticks when previous draw started
 	nowTicks     uint64        // ticks when current draw started
@@ -30,12 +31,15 @@ type Drawing struct {
 	keyupCallback   *lua.LFunction
 }
 
-func CreateDrawing(renderer *sdl.Renderer, script *lua.LState) *Drawing {
+func CreateDrawing(renderer *sdl.Renderer, scriptFile string) *Drawing {
+
+	script := lua.NewState()
 
 	ticks := sdl.GetTicks64()
 
 	dm := &Drawing{
 		script:       script,
+		scriptFile:   scriptFile,
 		renderer:     renderer,
 		drawFunc:     script.GetGlobal("Draw"),
 		nowTicks:     ticks,
@@ -49,6 +53,8 @@ func CreateDrawing(renderer *sdl.Renderer, script *lua.LState) *Drawing {
 		stack:        make([]*Drawing, 0),
 	}
 
+	dm.loadLuaScript()
+
 	dm.scaleX, dm.scaleY = renderer.GetScale()
 	dm.keydownCallback = luaFuncOrNil(script.GetGlobal("Keydown"))
 	dm.keyupCallback = luaFuncOrNil(script.GetGlobal("Keyup"))
@@ -56,18 +62,33 @@ func CreateDrawing(renderer *sdl.Renderer, script *lua.LState) *Drawing {
 	return dm
 }
 
-// Call the setup() function before the first frame is framed
-func (dm *Drawing) setup() {
+func (dm *Drawing) Destroy() {
+	dm.script.Close()
+}
+
+// Call the CallSetupFunc() function before the first frame is framed
+func (dm *Drawing) CallSetupFunc() {
 	if dm.frameCount > 0 {
-		return
+		panic("This should never happen")
 	}
 
 	setupFunc := dm.script.GetGlobal("Setup")
 	luaInvokeFunc("Setup()", dm.script, setupFunc)
 }
 
-// Do the draw phase of the game loop.
-func (dm *Drawing) draw() {
+func (dm *Drawing) loadLuaScript() {
+
+	dm.setupLuaFunctions()
+
+	if err := dm.script.DoFile(dm.scriptFile); err != nil {
+		panic(err)
+	}
+	dm.drawFunc = dm.script.GetGlobal("Draw")
+}
+
+// Do the CallDrawFunc phase of the game loop.
+func (dm *Drawing) CallDrawFunc() {
+
 	//
 	//********************************************
 	// Present last loop's renderings
@@ -98,6 +119,10 @@ func (dm *Drawing) draw() {
 		luaInvokeFunc("Draw()", dm.script, dm.drawFunc)
 	}
 
+	//
+	//********************************************
+	// Draw all "things"
+	//********************************************
 	if len(dm.stack) > 0 {
 		panic("You must call Pop() as many times as you have called Push()")
 	}
@@ -105,6 +130,11 @@ func (dm *Drawing) draw() {
 	//
 	//********************************************
 	// Start framerate limit logic
+	//
+	// Important: setting a low frameRateCap
+	// results on slow message handling.
+	// longer delays should be handled
+	// with the Sleep() method.
 	//********************************************
 	if dm.frameRateCap <= 0 {
 		return
@@ -127,11 +157,7 @@ func (dm *Drawing) applySettingsToRenderer() {
 }
 
 // Helper function to inject a variable or function into the script
-func (dm *Drawing) setGlobalScriptEntry(name string, value interface{}) {
-	dm.script.SetGlobal(
-		name,
-		luar.New(dm.script, value),
-	)
+func (dm *Drawing) assignVarToScript(name string, value interface{}) {
 }
 
 // triggered whenever our game loop receives a keydown event
@@ -145,42 +171,43 @@ func (dm *Drawing) onKeyup(ke *KeyEvent) {
 }
 
 // Functions sare injected into the script only once.
-func (dm *Drawing) exportFunctions() {
+func (dm *Drawing) setupLuaFunctions() {
 
-	dm.setGlobalScriptEntry("WinSize", dm.WinSize)
-	dm.setGlobalScriptEntry("WinTitle", dm.WinTitle)
-	dm.setGlobalScriptEntry("ProcessEvents", dm.ProcessEvents)
-	dm.setGlobalScriptEntry("FrameRateCap", dm.FrameRateCap)
+	fun := func(name string, value interface{}) {
+		dm.script.SetGlobal(name, luar.New(dm.script, value))
+	}
 
-	dm.setGlobalScriptEntry("GridSize", dm.GridSize)
-	dm.setGlobalScriptEntry("CanvasSize", dm.CanvasSize)
-	dm.setGlobalScriptEntry("Sleep", dm.Sleep)
-	dm.setGlobalScriptEntry("Log", log.Printf)
-	dm.setGlobalScriptEntry("Quit", dm.Quit)
-	dm.setGlobalScriptEntry("ForceQuit", dm.ForceQuit)
-	dm.setGlobalScriptEntry("FrameCount", func() uint64 { return dm.frameCount })
-	dm.setGlobalScriptEntry("Pause", dm.Pause)
-	dm.setGlobalScriptEntry("Resume", dm.Resume)
+	fun("WinSize", dm.WinSize)
+	fun("WinTitle", dm.WinTitle)
+	fun("ProcessEvents", dm.ProcessEvents)
+	fun("FrameRateCap", dm.FrameRateCap)
 
-	dm.setGlobalScriptEntry("Scale", dm.Scale)
-	dm.setGlobalScriptEntry("Color", dm.Color)
-	dm.setGlobalScriptEntry("Background", dm.Background)
-	dm.setGlobalScriptEntry("Dot", dm.Dot)
-	dm.setGlobalScriptEntry("Push", dm.Push)
-	dm.setGlobalScriptEntry("Pop", dm.Pop)
-	dm.setGlobalScriptEntry("Line", dm.Line)
-	dm.setGlobalScriptEntry("Rectangle", dm.Rectangle)
-	dm.setGlobalScriptEntry("Polygon", dm.Polygon)
+	fun("GridSize", dm.GridSize)
+	fun("CanvasSize", dm.CanvasSize)
+	fun("Sleep", dm.Sleep)
+	fun("Dump", dm.Dump)
+	fun("Log", log.Printf)
+	fun("Quit", dm.Quit)
+	fun("ForceQuit", dm.ForceQuit)
+	fun("FrameCount", func() uint64 { return dm.frameCount })
+	fun("Pause", dm.Pause)
+	fun("Resume", dm.Resume)
+
+	fun("Scale", dm.Scale)
+	fun("Color", dm.Color)
+	fun("Background", dm.Background)
+	fun("Dot", dm.Dot)
+	fun("Push", dm.Push)
+	fun("Pop", dm.Pop)
+	fun("Line", dm.Line)
+	fun("Rectangle", dm.Rectangle)
+	fun("Polygon", dm.Polygon)
+	fun("PolarVector", CreateVectorPolar)
+	fun("Vector", func(composants ...float64) Vector { return Vector{components: composants} })
 
 	/*****************************************
 	 * TEST FUNCTIONS
 	 ****************************************/
 
-	dm.setGlobalScriptEntry("PolarVector", PolarVector)
-	dm.setGlobalScriptEntry("Vector", func(composants ...float64) VectorType {
-		return VectorType{
-			elements: composants,
-		}
-	})
-
+	fun("HasKey", dm.HasKey)
 }

@@ -8,16 +8,6 @@ import (
 	lua "github.com/yuin/gopher-lua"
 )
 
-func luaLoadScript() *lua.LState {
-	script := lua.NewState()
-
-	if err := script.DoFile("script.lua"); err != nil {
-		panic(err)
-	}
-
-	return script
-}
-
 func luaFuncOrNil(fn lua.LValue) *lua.LFunction {
 	if nil == fn {
 		return nil
