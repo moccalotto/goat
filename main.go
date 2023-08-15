@@ -3,33 +3,45 @@ package main
 import (
 	"os"
 
-	"github.com/veandco/go-sdl2/sdl"
+	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
 func main() {
-	exitCode := 0
-	defer os.Exit(exitCode)
-
-	// Tell SDL that we're currently in the main
-	// thread, and that our main program code should
-	// continue inside it.
-	// This way, SDL can find its way back to the main thread
-	// when it needs to.
-	sdl.Main(func() {
-		exitCode = run()
+	RunInMainthread(func() {
+		run()
 	})
 }
 
 // This is the actual main function
 func run() int {
 
-	window, renderer := setupSDL() // could switch to sfml, but cant get it to compile.
-	defer window.Destroy()
-	defer renderer.Destroy()
-	defer sdl.Quit()
+	options := &WindowOptions{
+		Title:     "GOAT",
+		Width:     800,
+		Height:    600,
+		Resizable: false,
+	}
 
-	dm := CreateDrawing(renderer, "script.lua")
+	freeGl, window, err := createGlWindow(options) // could switch to sfml, but cant get it to compile.
+	if err != nil {
+		panic(err)
+	}
+	defer freeGl()
+
+	dm := CreateDrawing(window, "script.lua")
 	defer dm.Destroy()
+
+	dm.window.SetKeyCallback(func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+		if action != glfw.Press {
+			return
+		}
+
+		print(glfw.GetKeyName(key, scancode))
+
+		if key == glfw.KeyEscape {
+			os.Exit(0)
+		}
+	})
 
 	/* 	NEXT STEPS
 	ROTATION MATRIX
@@ -44,7 +56,7 @@ func run() int {
 		* Line (Stroke Width, Stroke Color, Location, Length, Rotation)
 		* Circle (fill color, stroke thickness, stroke color, location, size)
 		* Ellipse (fill color, stroke thickness, stroke color location, size_a, size_b, rotation)
-		* Rectange (fill color, stroke thickness, stroke color, corner_radius, location, size_a, size_b, rotation)
+		* Rectangle (fill color, stroke thickness, stroke color, corner_radius, location, size_a, size_b, rotation)
 		* Image
 	*/
 

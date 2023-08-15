@@ -8,102 +8,51 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
-	"github.com/veandco/go-sdl2/sdl"
+	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
 func (dm *Drawing) ProcessEvents(maxEventsToProcess ...int) bool {
 	// Only process a few events at a time, unless otherwise specified.
-	max := 3
-	if len(maxEventsToProcess) > 0 {
-		max = maxEventsToProcess[0]
-	}
+	glfw.PollEvents()
+	return !dm.window.ShouldClose()
+}
 
-	// Sanity check. Max should never be too large
-	if max > 100 {
-		log.Printf("The »max« arg is too large. It is %d, but it cannot be larger than %d\n", max, 100)
-		max = 100
-	}
+func (dm *Drawing) AddEntity(e Entity) Entity {
+	// NOTE Not thread safe
+	dm.nextEntityId++
 
-	for i := 0; i < max; i++ {
-		event := sdl.PollEvent()
+	e.SetId(dm.nextEntityId)
+	dm.entities[dm.nextEntityId] = e
 
-		if event == nil {
-			return true // no events om the event buffer, let's leave
-		}
-
-		switch t := event.(type) {
-		case *sdl.KeyboardEvent:
-			if t.State == sdl.PRESSED && t.Repeat == 0 {
-				ke := CreateKeyEvent(t)
-				dm.onKeydown(ke)
-			}
-			// if t.State == sdl.PRESSED && t.Repeat > 0 {
-			// ke := CreateKeyEvent(t)
-			// dm.onKeyRepeat(ke)
-			// }
-			if t.State == sdl.RELEASED {
-				ke := CreateKeyEvent(t)
-				dm.onKeyup(ke)
-			}
-
-			return true
-		case *sdl.QuitEvent:
-			log.Printf("Received Quit event: %+v", event)
-			dm.ForceQuit(0)
-			return false
-		}
-
-		if i == max-1 {
-			log.Println("Event buffer full")
-		}
-	}
-
-	return true
+	return e
 }
 
 func (dm *Drawing) ForceQuit(code ...int) {
-	sdl.Quit()
-
 	exitCode := 0
 	if len(code) > 0 {
 		exitCode = code[0]
 	}
-
-	os.Exit(exitCode)
+	RunInMainthread(func() {
+		os.Exit(exitCode)
+	})
 }
 
 func (dm *Drawing) Quit() {
-
-	quitEvent := sdl.QuitEvent{
-		Type:      sdl.QUIT,
-		Timestamp: uint32(sdl.GetTicks64()),
-	}
-
-	sdl.PushEvent(&quitEvent)
-}
-
-func (dm *Drawing) CanvasSize() (int32, int32) {
-	w, h, _ := dm.renderer.GetOutputSize()
-
-	return w, h
-}
-
-func (dm *Drawing) GridSize() (int32, int32) {
-	vp := dm.renderer.GetViewport()
-
-	return vp.W, vp.H
+	// add quit event to glfw even queue if possible
 }
 
 // Sleep until the SDL tickcounter == end
 // every chunk_size_ms we wake up and process events.
-func (dm *Drawing) SleepUntil(end uint64, chunk_size_ms uint64) {
+func (dm *Drawing) SleepUntil(end float64, chunkSize float64) {
 
-	now := sdl.GetTicks64()
-	delta := end - now
+	now := glfw.GetTime()
 
-	if delta <= uint64(chunk_size_ms) {
-		sdl.Delay(uint32(delta))
+	delta := (end - now)
+
+	if delta <= chunkSize {
+		time.Sleep(time.Duration(delta * 1e9))
 		return
 	}
 
@@ -116,26 +65,27 @@ func (dm *Drawing) SleepUntil(end uint64, chunk_size_ms uint64) {
 	// Chunk size must never decrease.
 	// this is important! if you change it
 	// recursion might break or explode
-	if chunk_size_ms < safe_chunk_size {
-		chunk_size_ms = safe_chunk_size
+	if chunkSize < safe_chunk_size {
+		chunkSize = safe_chunk_size
 	}
 
-	dm.SleepUntil(end, chunk_size_ms)
+	// a bit of tail recursion never hurt anyone.
+	dm.SleepUntil(end, chunkSize)
 }
 
-func (dm *Drawing) Sleep(ms uint64, relative ...bool) {
+func (dm *Drawing) Sleep(sec float64, relative ...bool) {
 
-	var endTime uint64
-	startTime := dm.nowTicks
+	startTime := dm.nowTime
 
 	if len(relative) == 0 || !relative[0] {
-		startTime = sdl.GetTicks64()
+		startTime = glfw.GetTime()
 	}
 
-	endTime = startTime + ms
+	endTime := startTime + sec
 
-	dm.SleepUntil(endTime, 10)
+	const defaultChunkSize = 0.010 // 10 msec
 
+	dm.SleepUntil(endTime, defaultChunkSize)
 }
 
 // Push all settings onto a the stack.
@@ -150,38 +100,20 @@ func (dm *Drawing) Pop() {
 	stack := dm.stack
 	x, _ := stack[len(stack)-1], stack[:len(stack)-1]
 	*dm = *x
-
-	// bookkeeping: settings have been changed and we need to notify SDL
-	dm.renderer.SetScale(dm.scaleX, dm.scaleY)
 }
 
-func (dm *Drawing) WinSize(x, y int32, center ...bool) {
-	w, err := dm.renderer.GetWindow()
-
-	if err != nil {
-		panic(err)
-	}
-
+func (dm *Drawing) WinSize(x, y int, center ...bool) {
 	if x > 0 && y > 0 {
-		w.SetSize(x, y)
+		dm.window.SetSize(x, y)
 	}
 
 	if len(center) > 0 && center[0] {
-		w.SetPosition(
-			sdl.WINDOWPOS_CENTERED,
-			sdl.WINDOWPOS_CENTERED,
-		)
+		return // TODO something
 	}
 }
 
 func (dm *Drawing) WinTitle(title string) {
-	w, err := dm.renderer.GetWindow()
-
-	if err != nil {
-		panic(err)
-	}
-
-	w.SetTitle(title)
+	dm.window.SetTitle(title)
 }
 
 func (dm *Drawing) Pause() {
@@ -194,7 +126,7 @@ func (dm *Drawing) Resume() {
 	dm.paused = false
 }
 
-func (dm *Drawing) FrameRateCap(val float32) {
+func (dm *Drawing) FrameRateCap(val float64) {
 	dm.frameRateCap = val
 }
 
@@ -205,11 +137,5 @@ func (dm *Drawing) Dump(x ...interface{}) {
 }
 
 func (dm *Drawing) HasKey(name string) bool {
-	code := sdl.GetScancodeFromName(name)
-
-	states := sdl.GetKeyboardState()
-
-	// dm.Dump(states)
-
-	return states[code] != 0
+	return false
 }
