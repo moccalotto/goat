@@ -9,6 +9,7 @@ import (
 	"unsafe"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
+	"github.com/go-gl/mathgl/mgl32"
 )
 
 // Represents a shader program
@@ -18,6 +19,7 @@ type Shader struct {
 	vertShaderId uint32
 	fragShaderId uint32
 	programId    uint32
+	typeIds      map[int]ShaderAttribType
 	logger       *log.Logger
 	panicLevel   int
 }
@@ -118,6 +120,62 @@ func (S *Shader) getUniformLocation(name string) (int32, error) {
 	S.uniforms[name] = attr
 
 	return attr, nil
+}
+
+func (s *Shader) SetUniformAttr(name string, value interface{}) error {
+	loc, err := s.getUniformLocation(name)
+
+	if err != nil {
+		return err
+	}
+
+	switch typ := value.(type) {
+	case int32:
+		value := int32(value.(int))
+		gl.Uniform1iv(loc, 1, &value)
+	case float32:
+		value := value.(float32)
+		gl.Uniform1fv(loc, 1, &value)
+	case mgl32.Vec2:
+		value := value.(mgl32.Vec2)
+		gl.Uniform2fv(loc, 1, &value[0])
+	case mgl32.Vec3:
+		value := value.(mgl32.Vec3)
+		gl.Uniform3fv(loc, 1, &value[0])
+	case mgl32.Vec4:
+		value := value.(mgl32.Vec4)
+		gl.Uniform4fv(loc, 1, &value[0])
+	case mgl32.Mat2:
+		value := value.(mgl32.Mat2)
+		gl.UniformMatrix2fv(loc, 1, false, &value[0])
+	case mgl32.Mat2x3:
+		value := value.(mgl32.Mat2x3)
+		gl.UniformMatrix2x3fv(loc, 1, false, &value[0])
+	case mgl32.Mat2x4:
+		value := value.(mgl32.Mat2x4)
+		gl.UniformMatrix2x4fv(loc, 1, false, &value[0])
+	case mgl32.Mat3:
+		value := value.(mgl32.Mat3)
+		gl.UniformMatrix3fv(loc, 1, false, &value[0])
+	case mgl32.Mat3x2:
+		value := value.(mgl32.Mat3x2)
+		gl.UniformMatrix3x2fv(loc, 1, false, &value[0])
+	case mgl32.Mat3x4:
+		value := value.(mgl32.Mat3x4)
+		gl.UniformMatrix3x4fv(loc, 1, false, &value[0])
+	case mgl32.Mat4:
+		value := value.(mgl32.Mat4)
+		gl.UniformMatrix4fv(loc, 1, false, &value[0])
+	case mgl32.Mat4x2:
+		value := value.(mgl32.Mat4x2)
+		gl.UniformMatrix4x2fv(loc, 1, false, &value[0])
+	case mgl32.Mat4x3:
+		value := value.(mgl32.Mat4x3)
+		gl.UniformMatrix4x3fv(loc, 1, false, &value[0])
+	default:
+		return fmt.Errorf("unsupported data type: %v", typ)
+	}
+	return nil
 }
 
 func (S *Shader) EnableVertexAttribArray(name string) error {
