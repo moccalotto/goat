@@ -2,8 +2,6 @@ package main
 
 import (
 	"goat/glhelp"
-	"log"
-	"math/rand"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
@@ -46,16 +44,14 @@ func actualMain() {
 
 	i := 0
 
-	polly := glhelp.CreatePolygon(rand.Int()%10+3, []float32{rand.Float32(), rand.Float32(), rand.Float32(), 1}, "cat.png")
-	polly2 := glhelp.CreatePolygon(3, []float32{rand.Float32(), rand.Float32(), rand.Float32(), 1}, "cat.png")
-
-	log.Printf("%v %v", &polly, &polly2)
+	triangle := glhelp.CreateTriangle()
+	triangle2 := glhelp.CreateTriangle()
 
 	for !window.ShouldClose() {
 		glhelp.ClearF(0.1, 0.1, 0.1, 1.0)
 
-		polly2.Draw(window)
-		polly.Draw(window)
+		triangle.Draw()
+		triangle2.Draw()
 
 		glfw.PollEvents()
 

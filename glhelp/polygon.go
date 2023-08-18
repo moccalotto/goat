@@ -129,7 +129,7 @@ func (Pol *Polygon) initShader() {
 		panic("Trying to initialize a dirty object. Shader was already initialized")
 	}
 
-	Pol.shader = CreateProgramFromFiles("shad_vert.vert", "shad_frag.frag")
+	Pol.shader = CreateProgramFromFiles("polygon.vert", "polygon.frag")
 
 	// tell GL to use the shader
 	log.Println("Shaders compiled and loaded")

@@ -23,15 +23,15 @@ type ShaderProgram struct {
 	panicLevel   int
 }
 
-func _readShaderFileOrPanic(filename string) string {
+func ReadFile(filename string) (string, error) {
 
 	bytes, err := os.ReadFile(filename)
 
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 
-	return string(bytes)
+	return string(bytes), nil
 }
 
 func (S *ShaderProgram) error(severity int, err error) error {
@@ -57,11 +57,11 @@ func CreateProgramFromFiles(vertPath, fragPath string) *ShaderProgram {
 	}
 	var err error
 
-	if S.vertShaderId, err = compileShader(gl.VERTEX_SHADER, vertPath, _readShaderFileOrPanic(vertPath)); err != nil {
+	if S.vertShaderId, err = compileShader(gl.VERTEX_SHADER, vertPath); err != nil {
 		panic(S.error(1, err))
 	}
 
-	if S.fragShaderId, err = compileShader(gl.FRAGMENT_SHADER, fragPath, _readShaderFileOrPanic(fragPath)); err != nil {
+	if S.fragShaderId, err = compileShader(gl.FRAGMENT_SHADER, fragPath); err != nil {
 		panic(S.error(1, err))
 	}
 
@@ -251,7 +251,12 @@ func (S *ShaderProgram) getLinkError() error {
 	return nil
 }
 
-func compileShader(shaderType uint32, filenameHint, source string) (shader_id uint32, e error) {
+func compileShader(shaderType uint32, filePath string) (shader_id uint32, e error) {
+
+	source, err := ReadFile(filePath)
+	if err != nil {
+		return 0, err
+	}
 
 	if (shaderType != gl.VERTEX_SHADER) && (shaderType != gl.FRAGMENT_SHADER) {
 		return 0, errors.New("invalid shader_type argument. Must be GL_FRAGMENT_SHADER or GL_VERTEX_SHADER")
@@ -271,11 +276,11 @@ func compileShader(shaderType uint32, filenameHint, source string) (shader_id ui
 		logStr := GetShaderLog(shader_id)
 
 		if logStr == "" {
-			return 0, fmt.Errorf("cannot compile shader '%s'", filenameHint)
+			return 0, fmt.Errorf("cannot compile shader '%s'", filePath)
 		}
 
 		log.Println(logStr)
-		return 0, fmt.Errorf("cannot compile shader '%s': %s", filenameHint, logStr)
+		return 0, fmt.Errorf("cannot compile shader '%s': %s", filePath, logStr)
 	}
 	return shader_id, nil
 }

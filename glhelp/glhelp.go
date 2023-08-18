@@ -106,16 +106,16 @@ func GetProgramLog(programId uint32) string {
 	return string(buffer)
 }
 
-func CreateProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error) {
+func CreateProgram(vertFilePath, fragFilePath string) (uint32, error) {
 
 	// VERTEX SHADER
-	vert_shader_id, err := compileShader(gl.VERTEX_SHADER, "vertex", vertexShaderSource)
+	vert_shader_id, err := compileShader(gl.VERTEX_SHADER, vertFilePath)
 
 	if err != nil {
 		return 0, err
 	}
 
-	frag_shader_id, err := compileShader(gl.FRAGMENT_SHADER, "fragment", fragmentShaderSource)
+	frag_shader_id, err := compileShader(gl.FRAGMENT_SHADER, fragFilePath)
 
 	if err != nil {
 		return 0, err
