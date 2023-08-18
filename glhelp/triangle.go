@@ -1,7 +1,7 @@
 package glhelp
 
 import (
-	"github.com/go-gl/gl/v4.5-core/gl"
+	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
 type Triangle struct {
@@ -10,40 +10,34 @@ type Triangle struct {
 	vertShaderId uint32 // handle to the compiled vertex shader
 	fragShaderId uint32 // handle to the compiled fragment shader
 	programId    uint32 // handle to the linked shader program
-
-	verts []float32
+	Scale        float32
+	verts        []float32
+	readyToDraw  bool // have all the OpenGL calls been made so we're ready to call Draw()
 }
-
-var (
-	blam int = 0
-)
 
 func CreateTriangle() *Triangle {
 
-	blam += 1
-	TR := Triangle{
-		vao: 0,
-		vbo: 0,
+	return &Triangle{
+		vao:   0,
+		vbo:   0,
+		Scale: 1.0,
 		verts: []float32{
 			0, 1, 0, // top center
 			-1, -1, 0, // low left
 			1, -1, 0, // low right
 		},
+		readyToDraw: false,
 	}
+}
 
-	if blam%2 == 0 {
-		for i, v := range TR.verts {
-			TR.verts[i] = v * -1
-		}
-	}
-
+func (TR *Triangle) Initialize() {
 	var err error
-	TR.vertShaderId, err = compileShader(gl.VERTEX_SHADER, "triangle.vert")
+	TR.vertShaderId, err = compileShader(gl.VERTEX_SHADER, "shaders/triangle.vert")
 	if err != nil {
 		panic(err)
 	}
 
-	TR.fragShaderId, err = compileShader(gl.FRAGMENT_SHADER, "triangle.frag")
+	TR.fragShaderId, err = compileShader(gl.FRAGMENT_SHADER, "shaders/triangle.frag")
 	if err != nil {
 		panic(err)
 	}
@@ -71,8 +65,6 @@ func CreateTriangle() *Triangle {
 	gl.DeleteShader(TR.vertShaderId)
 	gl.DeleteShader(TR.fragShaderId)
 
-	gl.UseProgram(TR.programId)
-
 	AssertGLOK("CreateTriangle - Shader Setup")
 
 	// Create VAO
@@ -94,13 +86,24 @@ func CreateTriangle() *Triangle {
 
 	AssertGLOK("CreateTriangle - Buffer Setup")
 
-	return &TR
+	TR.readyToDraw = true
 }
 
 func (TR *Triangle) Draw() {
-	gl.UseProgram(TR.programId)
+	if !TR.readyToDraw {
+		panic("You forgot to call Initialize()")
+	}
 
+	gl.UseProgram(TR.programId)
 	gl.BindVertexArray(TR.vao)
+	gl.Uniform1f(0, TR.Scale)
 	gl.DrawArrays(gl.TRIANGLES, 0, int32(len(TR.verts)))
 	// pass
+}
+
+func (TR *Triangle) Destroy() {
+	gl.DeleteBuffers(1, &TR.vao)
+	gl.DeleteBuffers(1, &TR.vbo)
+	gl.DeleteProgram(TR.programId)
+	AssertGLOK("Triangle.Destroy")
 }

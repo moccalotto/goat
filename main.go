@@ -42,23 +42,29 @@ func actualMain() {
 		}
 	})
 
-	i := 0
-
-	triangle := glhelp.CreateTriangle()
-	triangle2 := glhelp.CreateTriangle()
+	scale := float32(0.5)
+	pulse := 0.005
 
 	for !window.ShouldClose() {
 		glhelp.ClearF(0.1, 0.1, 0.1, 1.0)
 
-		triangle.Draw()
-		triangle2.Draw()
+		scale += float32(pulse)
+
+		if scale > 0.9 || scale < 0.2 {
+			pulse = pulse * -1
+		}
+
+		thingChan := make(glhelp.PolygonChanel)
+		glhelp.GoCreatePolygon(thingChan, 4, []float32{}, "textures/cat.png")
+		thing := <-thingChan
+		thing.Initialize()
+		// thing.Scale = scale
+		thing.Draw()
 
 		glfw.PollEvents()
 
-		glhelp.AssertGLOK("EndOfDraw", i)
+		glhelp.AssertGLOK("EndOfDraw")
 		window.SwapBuffers()
-
-		i++
 	}
 	// dm := CreateDrawing(window, "script.lua")
 	// defer dm.Destroy()

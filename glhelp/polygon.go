@@ -6,23 +6,27 @@ import (
 	"math"
 	"math/rand"
 
-	"github.com/go-gl/gl/v4.5-core/gl"
-	"github.com/go-gl/glfw/v3.3/glfw"
+	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
 type Polygon struct {
-	shader      *ShaderProgram
-	texture     *Texture
-	indeces     []uint32  // array of indices that point into the verts array
-	verts       []float32 // array of floats that constitute our verts
-	texCoords   []float32 // texture coordinates
-	colors      []float32 // color at each vert position
-	ready       bool      // have the buffers been initialized
-	vao         uint32    // Vector Attribute Object
-	vbo         uint32    // Vector Buffer Object
-	indexBuffer uint32    // Element/Index Buffer Object
-	cbo         uint32    // Color Buffer Object
-	tbo         uint32    // Texture Buffer Object
+	shader    *ShaderProgram
+	texture   *Texture
+	indeces   []uint32  // array of indices that point into the verts array
+	verts     []float32 // array of floats that constitute our verts
+	texCoords []float32 // texture coordinates
+	colors    []float32 // color at each vert position
+	ready     bool      // have the buffers been initialized
+	vao       uint32    // Vector Attribute Object
+	buffers   [4]uint32 // our 4 buffers
+}
+
+type PolygonChanel chan *Polygon
+
+func GoCreatePolygon(result PolygonChanel, sides int, colors []float32, texFilePath string) {
+	go func() {
+		result <- CreatePolygon(sides, colors, texFilePath)
+	}()
 }
 
 func CreatePolygon(sides int, colors []float32, texFilePath string) *Polygon {
@@ -93,7 +97,7 @@ func CreatePolygon(sides int, colors []float32, texFilePath string) *Polygon {
 	}
 }
 
-func (Pol *Polygon) Draw(window *glfw.Window) {
+func (Pol *Polygon) Draw() {
 	Pol.Initialize()
 	Pol.shader.Use()
 	gl.BindVertexArray(Pol.vao)
@@ -129,7 +133,7 @@ func (Pol *Polygon) initShader() {
 		panic("Trying to initialize a dirty object. Shader was already initialized")
 	}
 
-	Pol.shader = CreateProgramFromFiles("polygon.vert", "polygon.frag")
+	Pol.shader = CreateProgramFromFiles("shaders/polygon.vert", "shaders/polygon.frag")
 
 	// tell GL to use the shader
 	log.Println("Shaders compiled and loaded")
@@ -144,28 +148,31 @@ func (Pol *Polygon) initBuffers() {
 		panic(fmt.Errorf("expected at least 3 elements in the verts array, only got %d", len(Pol.verts)))
 	}
 
-	// Vertex Buffer Object
-	gl.GenBuffers(1, &Pol.vbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, Pol.vbo)
-	gl.BufferData(gl.ARRAY_BUFFER, 4*len(Pol.verts), gl.Ptr(Pol.verts), gl.STATIC_DRAW)
+	// Create out buffers
+	// VBO: 0	vertex
+	// EBO: 1	element
+	// CBO: 2	color
+	// TBO: 3	texture
+	gl.GenBuffers(int32(len(Pol.buffers)), &Pol.buffers[0])
 
 	// Vertex Array Object
 	gl.GenVertexArrays(1, &Pol.vao)
 	gl.BindVertexArray(Pol.vao)
-	gl.BindBuffer(gl.ARRAY_BUFFER, Pol.vao)
+
+	// Vertex Buffer Object
+	gl.BindBuffer(gl.ARRAY_BUFFER, Pol.buffers[0])
+	gl.BufferData(gl.ARRAY_BUFFER, 4*len(Pol.verts), gl.Ptr(Pol.verts), gl.STATIC_DRAW)
 
 	Pol.shader.EnableVertexAttribArray("iVert")
 	Pol.shader.VertexAttribPointer("iVert", 3, gl.FLOAT, false, 0, nil)
 
 	// Element/Index Buffer Object
-	gl.GenBuffers(1, &Pol.indexBuffer)
-	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, Pol.indexBuffer)
+	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, Pol.buffers[1])
 	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(Pol.indeces)*4, gl.Ptr(Pol.indeces), gl.STATIC_DRAW)
 
 	//
 	// Color Buffer Object
-	gl.GenBuffers(1, &Pol.cbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, Pol.cbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, Pol.buffers[2])
 	gl.BufferData(gl.ARRAY_BUFFER, len(Pol.colors)*4, gl.Ptr(Pol.colors), gl.STATIC_DRAW)
 
 	Pol.shader.EnableVertexAttribArray("iColor")
@@ -174,16 +181,18 @@ func (Pol *Polygon) initBuffers() {
 	//
 	// Texture Buffers
 
-	gl.GenBuffers(1, &Pol.tbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, Pol.tbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, Pol.buffers[3])
 	gl.BufferData(gl.ARRAY_BUFFER, len(Pol.texCoords)*4, gl.Ptr(Pol.texCoords), gl.STATIC_DRAW)
 
 	Pol.shader.EnableVertexAttribArray("iTexCoord")
 	Pol.shader.VertexAttribPointer("iTexCoord", 2, gl.FLOAT, false, 0, nil)
 
-	gl.BindVertexArray(0)
+	// cleanup
+
 	Pol.shader.DisableVertexAttribArray("iVert")
 	Pol.shader.DisableVertexAttribArray("iTexCoord")
+
+	gl.BindVertexArray(0)
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, 0)
 }
@@ -192,12 +201,7 @@ func (Pol *Polygon) Destroy() {
 
 	Pol.ready = false
 
-	// TODO: keep all buffers in an array so we can delete them all with one call.
-	gl.DeleteBuffers(1, &Pol.indexBuffer)
-	gl.DeleteBuffers(1, &Pol.vao)
-	gl.DeleteBuffers(1, &Pol.vbo)
-	gl.DeleteBuffers(1, &Pol.cbo)
-	gl.DeleteBuffers(1, &Pol.tbo)
+	gl.DeleteBuffers(int32(len(Pol.buffers)), &Pol.buffers[0])
 	AssertGLOK("Polygon.Destroy")
 
 	Pol.shader.Destroy()
