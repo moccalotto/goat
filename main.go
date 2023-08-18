@@ -1,72 +1,82 @@
 package main
 
 import (
-	"os"
+	"goat/glhelp"
+	"log"
+	"math/rand"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
 )
 
 func main() {
-	RunInMainthread(func() {
-		run()
+	// start the mainthread system, allowing us to make calls on the main thread later
+	StartMainThreadSystem(func() {
+
+		// call actualMain() and ensure that it runs on the main thread
+		// because it contains tons of OpenGL calls, etc.
+		RunOnMain(actualMain)
 	})
 }
 
 // This is the actual main function
-func run() int {
+// must run on mainthread
+func actualMain() {
 
 	options := &WindowOptions{
 		Title:     "GOAT",
-		Width:     800,
-		Height:    600,
+		Width:     1500,
+		Height:    1500,
 		Resizable: false,
 	}
 
-	freeGl, window, err := createGlWindow(options) // could switch to sfml, but cant get it to compile.
+	_, window, err := initGlfw(options) // could switch to sfml, but cant get it to compile.
 	if err != nil {
 		panic(err)
 	}
-	defer freeGl()
 
-	dm := CreateDrawing(window, "script.lua")
-	defer dm.Destroy()
-
-	dm.window.SetKeyCallback(func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+	window.SetKeyCallback(func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
 		if action != glfw.Press {
 			return
 		}
 
-		print(glfw.GetKeyName(key, scancode))
-
 		if key == glfw.KeyEscape {
-			os.Exit(0)
+			glfw.GetCurrentContext().SetShouldClose(true)
 		}
 	})
 
-	/* 	NEXT STEPS
-	ROTATION MATRIX
-	does what it says on the tin
+	i := 0
 
-	ENTITIES
-	an entity is a simple shape (initially)
-	It has a location, one or two colors, and a few other parameters.
-	It can be ephemeral - so it is removed right after renedering - or it can persist
-	You can chose to execute its draw instructions right away, or when the Draw() is at an end
-		* Dot (Size, Location, Color)
-		* Line (Stroke Width, Stroke Color, Location, Length, Rotation)
-		* Circle (fill color, stroke thickness, stroke color, location, size)
-		* Ellipse (fill color, stroke thickness, stroke color location, size_a, size_b, rotation)
-		* Rectangle (fill color, stroke thickness, stroke color, corner_radius, location, size_a, size_b, rotation)
-		* Image
-	*/
+	polly := glhelp.CreatePolygon(rand.Int()%10+3, []float32{rand.Float32(), rand.Float32(), rand.Float32(), 1}, "cat.png")
+	polly2 := glhelp.CreatePolygon(3, []float32{rand.Float32(), rand.Float32(), rand.Float32(), 1}, "cat.png")
 
-	dm.CallSetupFunc()
+	log.Printf("%v %v", &polly, &polly2)
 
-	for dm.ProcessEvents(100) {
+	for !window.ShouldClose() {
+		glhelp.ClearF(0.1, 0.1, 0.1, 1.0)
 
-		dm.CallDrawFunc()
+		polly2.Draw(window)
+		polly.Draw(window)
 
+		glfw.PollEvents()
+
+		glhelp.AssertGLOK("EndOfDraw", i)
+		window.SwapBuffers()
+
+		i++
 	}
+	// dm := CreateDrawing(window, "script.lua")
+	// defer dm.Destroy()
 
-	return 0
+	// 	print(glfw.GetKeyName(key, scancode))
+
+	// 	if key == glfw.KeyEscape {
+	// 		os.Exit(0)
+	// 	}
+	// })
+	// dm.CallSetupFunc()
+
+	// for dm.ProcessEvents(100) {
+
+	// 	dm.CallDrawFunc()
+	// }
 }

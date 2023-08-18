@@ -15,6 +15,12 @@
 
 package main
 
+import (
+	"math"
+
+	"github.com/go-gl/mathgl/mgl32"
+)
+
 func (dm *Drawing) Color(c ...uint8) (uint8, uint8, uint8, uint8) {
 	switch len(c) {
 	case 0:
@@ -58,8 +64,35 @@ func (dm *Drawing) Dot(x, y float64) {
 func (dm *Drawing) Rectangle(x1, y1, x2, y2 float64) {
 }
 
-func (dm *Drawing) Polygon(centerX, centerY, radius, angle float64, vertices int) {
-	/*
-		https://github.com/go-gl/mathgl/blob/e426c0894fa41bc41ac04704eef3ac4011b19ecf/mgl32/shapes.go#L34
-	*/
+func (dm *Drawing) Polygon(centerX, centerY, radius, angle float64, edgeVertexCount int) []mgl32.Vec3 {
+
+	if edgeVertexCount < 3 {
+		panic("verticeCount must be at least 3")
+	}
+
+	const tau = 2 * math.Pi
+	radiansPerSlice := tau / float64(edgeVertexCount)
+	triangleCount := edgeVertexCount - 2
+
+	tmp := make([]mgl32.Vec3, edgeVertexCount)
+	for i := 0; i < edgeVertexCount; i++ {
+		currentAngle := radiansPerSlice * float64(i)
+		_sin, _cos := math.Sincos(currentAngle)
+		tmp[i] = mgl32.Vec3{
+			/* x: */ float32(_cos * currentAngle),
+			/* y: */ float32(_sin * currentAngle),
+			/* z: */ 0.0,
+		}
+	}
+
+	result := make([]mgl32.Vec3, 0)
+	for i := 0; i < triangleCount; i++ {
+		result = append(result,
+			tmp[i],
+			tmp[i+1],
+			tmp[i+2],
+		)
+	}
+
+	return result
 }

@@ -34,7 +34,7 @@ func (dm *Drawing) ForceQuit(code ...int) {
 	if len(code) > 0 {
 		exitCode = code[0]
 	}
-	RunInMainthread(func() {
+	StartMainThreadSystem(func() {
 		os.Exit(exitCode)
 	})
 }

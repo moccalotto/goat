@@ -120,8 +120,6 @@ func (dm *Drawing) CallDrawFunc() {
 
 	glhelp.ClearI(dm.bgColor.R, dm.bgColor.G, dm.bgColor.B, dm.bgColor.A)
 
-	glhelp.Triangle()
-
 	//
 	//********************************************
 	// Call the Draw() function
@@ -237,5 +235,4 @@ func (dm *Drawing) setupLuaFunctions() {
 		el := CreateELineX(pivX, pivY, length, radians)
 		return dm.AddEntity(el).(*ELine)
 	})
-
 }

@@ -22,7 +22,7 @@ func (O *WindowOptions) ResizableInt() int {
 	return glfw.False
 }
 
-func createGlWindow(options *WindowOptions) (func(), *glfw.Window, error) {
+func initGlfw(options *WindowOptions) (func(), *glfw.Window, error) {
 
 	if err := glfw.Init(); err != nil {
 		panic(fmt.Errorf("glfw.Init failed: %v", err))

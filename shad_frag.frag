@@ -1,12 +1,21 @@
 #version 460 core
 
-uniform float u_rotAngle;
-// in vec3 gl_FragCoord;
 out vec4 fragColor;
 
+in vec4 ioColor;
+in vec2 ioTexCoord;
+
+uniform sampler2D uniTexture;
+
 void main() {
-  fragColor = vec4(vec3(0.99 * (sin(u_rotAngle*3) * 0.5 + 0.5),
-                    0.25 * (cos(u_rotAngle + gl_FragCoord.y) * 0.5 + 0.5),
-                    0.99 * (sin(u_rotAngle + gl_FragCoord.x) * 0.5 + 0.5)),
-               1);
+  fragColor = mix(texture(uniTexture, ioTexCoord), ioColor, 0.6);
+  /*
+  fragColor = vec4(
+    0.5 + 0.5 * sin(ioTexCoord.y),
+    0.5 + 0.5 * sin(ioTexCoord.y),
+    // 0.5 + 0.5 * sin(length(ioColor.rgb)),
+    0,
+    ioColor.a
+  );
+  */
 }

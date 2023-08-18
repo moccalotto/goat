@@ -4,7 +4,7 @@ import "runtime"
 
 var (
 	mainthreadChannel  chan func()
-	maxConcurrentCalls = 10
+	maxConcurrentCalls = 32
 )
 
 func assertInitialized() {
@@ -18,7 +18,7 @@ func init() {
 	runtime.LockOSThread()
 }
 
-func RunInMainthread(fn func()) {
+func StartMainThreadSystem(fn func()) {
 	mainthreadChannel = make(chan func(), maxConcurrentCalls)
 
 	done := make(chan struct{})
@@ -38,7 +38,7 @@ func RunInMainthread(fn func()) {
 }
 
 // cann a function on the main thread
-func Call(fn func()) {
+func RunOnMain(fn func()) {
 	assertInitialized()
 	done := make(chan bool)
 	mainthreadChannel <- func() {
@@ -49,7 +49,7 @@ func Call(fn func()) {
 }
 
 // call a function on the main thread, and return any errors it might have returned
-func CallErr(fn func() error) error {
+func MainCallErr(fn func() error) error {
 	assertInitialized()
 	err_chanel := make(chan error)
 	mainthreadChannel <- func() {

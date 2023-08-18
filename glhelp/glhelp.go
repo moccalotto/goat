@@ -11,10 +11,43 @@ Wrapper for all calls to opengl.
 */
 import (
 	"fmt"
+	"image"
 	"log"
+	"os"
+	"runtime/debug"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
+	"github.com/go-gl/mathgl/mgl32"
 )
+
+func AssertGLOK(values ...interface{}) {
+	errCode := gl.GetError()
+
+	if errCode == gl.NO_ERROR {
+		return
+	}
+
+	if len(values) == 0 {
+		debug.PrintStack()
+		panic(fmt.Errorf("openGL error. Code: %d", errCode))
+	}
+
+	log.Printf("OpenGL Errors: %v", values)
+	panic(fmt.Errorf("[%s] OpenGL Error: Code %d", values[0], errCode))
+}
+
+func LoadImage(filePath string) (image.Image, error) {
+
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close()
+
+	img, _, err := image.Decode(f)
+	return img, err
+}
 
 func Init() error {
 	ret := gl.Init()
@@ -26,29 +59,9 @@ func Str(s string) *uint8 {
 	return gl.Str(s + "\x00")
 }
 
-func WindowViewport2X(x, y, w, h int32) error {
-
-	var vp [4]int32
-	gl.GetIntegerv(gl.VIEWPORT, &vp[0])
-	log.Printf("%+v\n", vp)
-
-	gl.Viewport(
-		0,
-		0,
-		w*2,
-		h*2,
-	)
-
-	if errCode := gl.GetError(); errCode != 0 {
-		return fmt.Errorf("cound not intialize viewport. Error code: %v", errCode)
-	}
-
-	return nil
-}
-
 func ClearF(r, g, b, a float32) {
-	// gl.ClearColor(r, g, b, a)
-	// ClearX()
+	gl.ClearColor(r, g, b, a)
+	ClearX()
 }
 
 func ClearI(r, g, b, a uint8) {
@@ -61,12 +74,8 @@ func ClearI(r, g, b, a uint8) {
 }
 
 func ClearX() {
-	gl.Clear(gl.COLOR_BUFFER_BIT)
+	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 }
-
-var (
-	program_id uint32 = 0
-)
 
 func GetShaderLog(shaderId uint32) string {
 	var log_length int32
@@ -137,4 +146,29 @@ func CreateProgram(vertexShaderSource, fragmentShaderSource string) (uint32, err
 	gl.DeleteShader(frag_shader_id)
 
 	return program_id, nil
+}
+
+func FlattenVec2(vecs []mgl32.Vec2) []float32 {
+	res := make([]float32, len(vecs)*2)
+
+	for i, vec := range vecs {
+		res[i*2] = vec[0]
+		res[i*2+1] = vec[1]
+
+		i += 2
+	}
+
+	return res
+}
+func FlattenVec3(vecs []mgl32.Vec3) []float32 {
+	res := make([]float32, len(vecs)*2)
+
+	for i, vec := range vecs {
+		res[i*2] = vec[0]
+		res[i*2+1] = vec[1]
+
+		i += 2
+	}
+
+	return res
 }

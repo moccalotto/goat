@@ -13,13 +13,12 @@ import (
 )
 
 // Represents a shader program
-type Shader struct {
+type ShaderProgram struct {
 	uniforms     map[string]int32
 	attribs      map[string]uint32
 	vertShaderId uint32
 	fragShaderId uint32
 	programId    uint32
-	typeIds      map[int]ShaderAttribType
 	logger       *log.Logger
 	panicLevel   int
 }
@@ -35,7 +34,7 @@ func _readShaderFileOrPanic(filename string) string {
 	return string(bytes)
 }
 
-func (S *Shader) error(severity int, err error) error {
+func (S *ShaderProgram) error(severity int, err error) error {
 	S.logger.Print(err)
 
 	if severity >= S.panicLevel {
@@ -45,9 +44,9 @@ func (S *Shader) error(severity int, err error) error {
 	return err
 }
 
-func CreateProgramFromFiles(vertPath, fragPath string) (*Shader, error) {
+func CreateProgramFromFiles(vertPath, fragPath string) *ShaderProgram {
 
-	S := Shader{
+	S := ShaderProgram{
 		uniforms:     make(map[string]int32),
 		attribs:      make(map[string]uint32),
 		vertShaderId: 0,
@@ -59,32 +58,27 @@ func CreateProgramFromFiles(vertPath, fragPath string) (*Shader, error) {
 	var err error
 
 	if S.vertShaderId, err = compileShader(gl.VERTEX_SHADER, vertPath, _readShaderFileOrPanic(vertPath)); err != nil {
-		S.error(1, err)
-		return nil, err
+		panic(S.error(1, err))
 	}
 
 	if S.fragShaderId, err = compileShader(gl.FRAGMENT_SHADER, fragPath, _readShaderFileOrPanic(fragPath)); err != nil {
-		S.error(1, err)
-		return nil, err
+		panic(S.error(1, err))
 	}
 
 	S.programId = gl.CreateProgram()
 	gl.AttachShader(S.programId, S.vertShaderId)
 	gl.AttachShader(S.programId, S.fragShaderId)
 	gl.LinkProgram(S.programId)
+	defer S.CleanupShaders()
 
 	if err := S.getLinkError(); err != nil {
-		S.CleanupShaders()
-		log.Println("shader linking problem", err)
-		return nil, fmt.Errorf("could not link shaders. %v", err)
+		panic(S.error(2, fmt.Errorf("could not link shaders. %v", err)))
 	}
 
-	S.CleanupShaders()
-
-	return &S, nil
+	return &S
 }
 
-func (S *Shader) getAttribLocation(name string) (uint32, error) {
+func (S *ShaderProgram) getAttribLocation(name string) (uint32, error) {
 	loc, found := S.attribs[name]
 
 	if found {
@@ -103,7 +97,7 @@ func (S *Shader) getAttribLocation(name string) (uint32, error) {
 	return uint32(attr), nil
 }
 
-func (S *Shader) getUniformLocation(name string) (int32, error) {
+func (S *ShaderProgram) getUniformLocation(name string) (int32, error) {
 	loc, found := S.uniforms[name]
 
 	if found {
@@ -122,7 +116,7 @@ func (S *Shader) getUniformLocation(name string) (int32, error) {
 	return attr, nil
 }
 
-func (s *Shader) SetUniformAttr(name string, value interface{}) error {
+func (s *ShaderProgram) SetUniformAttr(name string, value interface{}) error {
 	loc, err := s.getUniformLocation(name)
 
 	if err != nil {
@@ -178,111 +172,70 @@ func (s *Shader) SetUniformAttr(name string, value interface{}) error {
 	return nil
 }
 
-func (S *Shader) EnableVertexAttribArray(name string) error {
+func (S *ShaderProgram) DisableVertexAttribArray(name string) {
 
 	location, err := S.getAttribLocation(name)
 
 	if err != nil {
-		return S.error(
-			2,
-			fmt.Errorf("EnableVertexAttribArray: %s", err),
-		)
+		panic(S.error(2, fmt.Errorf("DisableVertexAttribArray: %s", err)))
 	}
 
 	gl.EnableVertexAttribArray(location)
 
-	if errCode := gl.GetError(); errCode != gl.NO_ERROR {
-		return S.error(
-			2,
-			fmt.Errorf("EnableVertexAttribArray: %v", errCode),
-		)
-	}
-	return nil
+	AssertGLOK("DisableVertexAttribArray")
 }
-func (S *Shader) VertexAttribPointer(name string, size int32, xtype uint32, normalized bool, stride int32, pointer unsafe.Pointer) error {
+
+func (S *ShaderProgram) EnableVertexAttribArray(name string) {
+
+	location, err := S.getAttribLocation(name)
+
+	if err != nil {
+		panic(S.error(2, fmt.Errorf("EnableVertexAttribArray: %s", err)))
+	}
+
+	gl.EnableVertexAttribArray(location)
+
+	AssertGLOK("EnableVertexAttribArray", name)
+}
+
+func (S *ShaderProgram) VertexAttribPointer(name string, size int32, xtype uint32, normalized bool, stride int32, pointer unsafe.Pointer) {
 	pos, err := S.getAttribLocation(name)
 	if err != nil {
-		return S.error(
-			2,
-			fmt.Errorf("VertexAttribPointer: %v", err),
-		)
+		panic(S.error(2, fmt.Errorf("VertexAttribPointer: %v", err)))
 	}
 
 	gl.VertexAttribPointer(
 		pos,        // Must match layout in shader
-		size,       // size (vec3)
+		size,       // size
 		xtype,      // type of data in vector components (i think)
 		normalized, // data is not normalized
 		stride,     // stride (there are zero bytes in between the vertices in the array)
 		pointer,
 	)
 
-	if errCode := gl.GetError(); errCode != gl.NO_ERROR {
-		return S.error(
-			2,
-			fmt.Errorf("VertexAttribPointer: GL Error Code: %v", errCode),
-		)
-	}
-
-	return nil
+	AssertGLOK("VertexAttribPointer", name)
 }
 
-func (S *Shader) Uniform1f(name string, value float32) error {
-	location, err := S.getUniformLocation(name)
-
-	if err != nil {
-		return err
-	}
-
-	gl.Uniform1f(
-		location,
-		value,
-	)
-
-	if gl.GetError() != gl.NO_ERROR {
-		panic("Could not Uniform1f")
-	}
-
-	return nil
-}
-
-func (S *Shader) Uniform2fv(name string, values []float32) error {
-	location, err := S.getUniformLocation(name)
-
-	if err != nil {
-		return err
-	}
-
-	gl.Uniform2fv(
-		location,
-		int32(len(values)/2),
-		&values[0],
-	)
-
-	if gl.GetError() != gl.NO_ERROR {
-		panic("Could not Uniform2fv")
-	}
-
-	return nil
-}
-
-func (S *Shader) Use() {
+func (S *ShaderProgram) Use() {
 	gl.UseProgram(S.programId)
+	AssertGLOK("Shader.Use")
 }
 
-func (S *Shader) Destroy() {
-	S.CleanupShaders()
+func (S *ShaderProgram) Destroy() {
 	gl.DeleteProgram(S.programId)
+	AssertGLOK("Shader.Destroy")
 }
 
-func (S *Shader) CleanupShaders() {
+func (S *ShaderProgram) CleanupShaders() {
 	gl.DetachShader(S.programId, S.vertShaderId)
 	gl.DetachShader(S.programId, S.fragShaderId)
 	gl.DeleteShader(S.vertShaderId)
 	gl.DeleteShader(S.fragShaderId)
+
+	AssertGLOK("Shader.CleanupShaders")
 }
 
-func (S *Shader) getLinkError() error {
+func (S *ShaderProgram) getLinkError() error {
 
 	var link_status int32
 
