@@ -118,7 +118,7 @@ func (dm *Drawing) CallDrawFunc() {
 	dm.nowTime = glfw.GetTime()             // number of seconds since program started
 	dm.deltaTime = dm.nowTime - dm.prevTime // number of seconds since last update
 
-	glhelp.ClearI(dm.bgColor.R, dm.bgColor.G, dm.bgColor.B, dm.bgColor.A)
+	glhelp.ClearScreenI(dm.bgColor.R, dm.bgColor.G, dm.bgColor.B, dm.bgColor.A)
 
 	//
 	//********************************************

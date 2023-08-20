@@ -22,14 +22,14 @@ func CreateQuad() *Quad {
 		buffers: make([]uint32, 2),
 
 		verts: []float32{
-			-1, -1, 0, // bottom left
-			-1, 1, 0, // top left
 			1, 1, 0, // top right
-			-1, 1, 0, // bottom right
+			-1, 1, 0, // bot right
+			-1, -1, 0, // bot left
+			1, -1, 0, // top left
 		},
 		indeces: []uint32{
-			0, 3, 2, // bl -> br -> tr
-			0, 2, 1, // bl -> tr ->tl
+			0, 2, 3,
+			0, 1, 2,
 		},
 		readyToDraw: false,
 	}
@@ -107,7 +107,7 @@ func (QD *Quad) Draw() {
 	gl.BindVertexArray(QD.vao)
 	AssertGLOK("Quad: Draw")
 
-	gl.DrawElements(gl.TRIANGLES, int32(len(QD.indeces)), gl.UNSIGNED_INT, gl.Ptr(QD.indeces))
+	gl.DrawElements(gl.TRIANGLES, int32(len(QD.indeces)), gl.UNSIGNED_INT, nil)
 	AssertGLOK("Quad: Draw")
 }
 

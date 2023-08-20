@@ -6,66 +6,77 @@ Wrapper for all calls to opengl.
 - make importing opengl less stupid
 - streamline calls so they return better errors
 - wrap stuff in sane data structures
-
-
 */
+
 import (
 	"fmt"
 	"image"
-	"log"
+	"image/draw"
+	"math"
 	"os"
-	"runtime/debug"
+	"unsafe"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/mathgl/mgl32"
 )
 
-func AssertGLOK(values ...interface{}) {
-	errCode := gl.GetError()
+const (
+	Tau           = FullCircle
+	FullCircle    = math.Pi * 2
+	HalfCircle    = math.Pi
+	QuarterCircle = math.Pi / 2
 
-	if errCode == gl.NO_ERROR {
-		return
-	}
+	Degrees = FullCircle / 360
 
-	if len(values) == 0 {
-		debug.PrintStack()
-		panic(fmt.Errorf("openGL error. Code: %d", errCode))
-	}
+	Float32Size = 4
+	Uint32Size  = 4
+	Int32Size   = 4
+)
 
-	log.Printf("OpenGL Errors: %v", values)
-	panic(fmt.Errorf("[%s] OpenGL Error: Code %d", values[0], errCode))
-}
-
-func LoadImage(filePath string) (image.Image, error) {
+func LoadImage(filePath string) (*image.RGBA, error) {
 
 	f, err := os.Open(filePath)
 	if err != nil {
-		return nil, err
+		return nil, GlProbablePanic(fmt.Errorf("could not open file '%s' - %v", filePath, err))
 	}
-
 	defer f.Close()
 
 	img, _, err := image.Decode(f)
-	return img, err
+	if err != nil {
+		return nil, GlProbablePanic(err)
+	}
+
+	imgRgba := image.NewRGBA(img.Bounds())
+	draw.Draw(imgRgba, imgRgba.Bounds(), img, image.Pt(0, 0), draw.Src)
+
+	// we must have 4 8-bit colors per pixel
+	if imgRgba.Stride != imgRgba.Rect.Size().X*4 {
+		return nil, GlProbablePanic(
+			fmt.Errorf("only 32-bit colors supported. Stride is %d, but should be %d", imgRgba.Stride, imgRgba.Rect.Size().X*4),
+		)
+	}
+
+	return imgRgba, nil
 }
 
-func Init() error {
-	ret := gl.Init()
-
-	return ret
+/**
+ * Return a pointer to the given string
+ */
+func GlStr(str string) *uint8 {
+	/**
+	 * TODO: are we doing something dangerous here?
+	 * What if this temporary string gets garbage collected before OpenGL gets to use it ?
+	 */
+	return unsafe.StringData(str + "\x00")
 }
 
-func Str(s string) *uint8 {
-	return gl.Str(s + "\x00")
-}
-
-func ClearF(r, g, b, a float32) {
+func ClearScreenF(r, g, b, a float32) {
 	gl.ClearColor(r, g, b, a)
-	ClearX()
+	gl.Clear(gl.COLOR_BUFFER_BIT)
 }
 
-func ClearI(r, g, b, a uint8) {
-	ClearF(
+func ClearScreenI(r, g, b, a uint8) {
+	ClearScreenF(
 		float32(r)/255.0,
 		float32(g)/255.0,
 		float32(b)/255.0,
@@ -73,102 +84,27 @@ func ClearI(r, g, b, a uint8) {
 	)
 }
 
-func ClearX() {
-	gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-}
+func ReadFile(filename string) (string, error) {
 
-func GetShaderLog(shaderId uint32) string {
-	var log_length int32
-	gl.GetShaderiv(shaderId, gl.INFO_LOG_LENGTH, &log_length)
-
-	if log_length == 0 {
-		return ""
-	}
-
-	buffer := make([]byte, log_length+1)
-	gl.GetShaderInfoLog(shaderId, int32(len(buffer)), nil, &buffer[0])
-
-	return string(buffer)
-}
-
-func GetProgramLog(programId uint32) string {
-	var log_length int32
-
-	gl.GetProgramiv(programId, gl.INFO_LOG_LENGTH, &log_length)
-
-	if log_length == 0 {
-		return ""
-	}
-
-	buffer := make([]byte, log_length+1)
-	gl.GetProgramInfoLog(programId, int32(len(buffer)), nil, &buffer[0])
-
-	return string(buffer)
-}
-
-func CreateProgram(vertFilePath, fragFilePath string) (uint32, error) {
-
-	// VERTEX SHADER
-	vert_shader_id, err := compileShader(gl.VERTEX_SHADER, vertFilePath)
+	bytes, err := os.ReadFile(filename)
 
 	if err != nil {
-		return 0, err
+		return "", GlProbablePanic(err)
 	}
 
-	frag_shader_id, err := compileShader(gl.FRAGMENT_SHADER, fragFilePath)
-
-	if err != nil {
-		return 0, err
-	}
-
-	// CREATE PROGRAM
-	program_id := gl.CreateProgram()
-	gl.AttachShader(program_id, vert_shader_id)
-	gl.AttachShader(program_id, frag_shader_id)
-
-	gl.LinkProgram(program_id)
-
-	var link_status int32
-	gl.GetProgramiv(program_id, gl.LINK_STATUS, &link_status)
-
-	if link_status != gl.TRUE {
-
-		log := GetProgramLog(program_id)
-
-		return 0, fmt.Errorf("could not link shaders. %s", log)
-	}
-
-	// SOME SAY I SHOULD DO THIS HERE????
-	// Seems weird
-	gl.DetachShader(program_id, vert_shader_id)
-	gl.DetachShader(program_id, frag_shader_id)
-	gl.DeleteShader(vert_shader_id)
-	gl.DeleteShader(frag_shader_id)
-
-	return program_id, nil
+	return string(bytes), nil
 }
 
-func FlattenVec2(vecs []mgl32.Vec2) []float32 {
-	res := make([]float32, len(vecs)*2)
+func MatMulMany(mats ...mgl32.Mat3) mgl32.Mat3 {
+	result := mats[0]
 
-	for i, vec := range vecs {
-		res[i*2] = vec[0]
-		res[i*2+1] = vec[1]
-
-		i += 2
+	for i := 1; i < len(mats); i++ {
+		result = result.Mul3(mats[i])
 	}
 
-	return res
+	return result
 }
-func FlattenVec3(vecs []mgl32.Vec3) []float32 {
-	res := make([]float32, len(vecs)*2)
 
-	for i, vec := range vecs {
-		res[i*2] = vec[0]
-		res[i*2+1] = vec[1]
-
-		i += 2
-	}
-
-	return res
+func MatMulX3(m1, m2, m3 mgl32.Mat3) mgl32.Mat3 {
+	return m1.Mul3(m2).Mul3(m3)
 }

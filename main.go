@@ -42,43 +42,51 @@ func actualMain() {
 		}
 	})
 
-	scale := float32(0.5)
-	pulse := 0.005
+	thing := glhelp.CreatePolygon(4, []float32{}, "textures/cat.png")
+	thing.Initialize()
+
+	zero := float32(0)
+	time := zero
+	frameCount := zero
+	pulse := zero + 0.01
+
+	camera := glhelp.CreateCamera()
+	camera.SetFrameSize(10, 10)
+	camera.SetPosition(0, 0)
+	camera.SetRotation(45 * glhelp.Degrees)
+	camera.Zoom(0.1)
+
+	thing.SetPosition(0, 0)
+
+	thing.SetScale(2, 2)
+
+	thing2 := thing.Copy()
+	thing2.SetPosition(0, -3)
+	thing2.SetScale(3, 1)
 
 	for !window.ShouldClose() {
-		glhelp.ClearF(0.1, 0.1, 0.1, 1.0)
+		frameCount++
 
-		scale += float32(pulse)
+		glhelp.ClearScreenF(0.1, 0.1, 0.1, 1.0)
 
-		if scale > 0.9 || scale < 0.2 {
-			pulse = pulse * -1
+		time += pulse
+		camera.Zoom(1 + pulse*3)
+
+		if time > 0.9 {
+			pulse = -pulse
+		}
+		if time < 0 {
+			pulse = -pulse
 		}
 
-		thingChan := make(glhelp.PolygonChanel)
-		glhelp.GoCreatePolygon(thingChan, 4, []float32{}, "textures/cat.png")
-		thing := <-thingChan
-		thing.Initialize()
-		// thing.Scale = scale
-		thing.Draw()
+		thing.SetRotation(time)
+
+		thing.Draw(camera.GetTransformationMatrix())
+		thing2.Draw(camera.GetTransformationMatrix())
 
 		glfw.PollEvents()
 
 		glhelp.AssertGLOK("EndOfDraw")
 		window.SwapBuffers()
 	}
-	// dm := CreateDrawing(window, "script.lua")
-	// defer dm.Destroy()
-
-	// 	print(glfw.GetKeyName(key, scancode))
-
-	// 	if key == glfw.KeyEscape {
-	// 		os.Exit(0)
-	// 	}
-	// })
-	// dm.CallSetupFunc()
-
-	// for dm.ProcessEvents(100) {
-
-	// 	dm.CallDrawFunc()
-	// }
 }

@@ -1,7 +1,6 @@
 package glhelp
 
 import (
-	"errors"
 	"fmt"
 	"image"
 	"image/draw"
@@ -12,14 +11,14 @@ import (
 )
 
 type Texture struct {
-	handle uint32
-	target uint32 // same target as gl.BindTexture(<this param>, ...)
+	handle uint32 // id of the texture, equivalent to shader program id and buffer id
+	target uint32 // Usually GL_TEXTURE_2D
 	unit   uint32 // Texture unit. You can bundle many textures together in one unit, and allow the shader to work on all of them
 	wrapR  int32
 	wrapS  int32
 	W      int32
 	H      int32
-	pix    []uint8
+	pix    []uint8 // We should be able to reuse pix across many texture objects. OR be able to reuse textures again and again
 }
 
 func CreateTextureFromFile(filePath string, wrapR, wrapS int32) (*Texture, error) {
@@ -27,7 +26,7 @@ func CreateTextureFromFile(filePath string, wrapR, wrapS int32) (*Texture, error
 	img, err := LoadImage(filePath)
 
 	if err != nil {
-		return nil, err
+		return nil, GlProbablePanic(err)
 	}
 
 	return CreateTexture(img, wrapR, wrapS)
@@ -98,10 +97,15 @@ func (T *Texture) Unbind() {
 	gl.BindTexture(T.target, 0)
 }
 
-func (T *Texture) Setuniform(uniformLoc int32) error {
+func (T *Texture) GetTextureUnit() int32 {
 	if T.unit == 0 {
-		return errors.New("texture not bound")
+		GlPanic(fmt.Errorf("texture unit not set"))
 	}
-	gl.Uniform1i(uniformLoc, int32(T.unit-gl.TEXTURE0))
-	return nil
+
+	return int32(T.unit - gl.TEXTURE0)
+}
+
+func (T *Texture) Destroy() {
+	T.Unbind()
+	gl.DeleteTextures(1, &T.handle)
 }

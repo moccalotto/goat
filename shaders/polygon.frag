@@ -2,20 +2,11 @@
 
 out vec4 fragColor;
 
-in vec4 ioColor;
-in vec2 ioTexCoord;
+in vec4 vColor;
+in vec2 vTexCoord;
 
 uniform sampler2D uniTexture;
 
 void main() {
-  fragColor = mix(texture(uniTexture, ioTexCoord), ioColor, 0.6);
-  /*
-  fragColor = vec4(
-    0.5 + 0.5 * sin(ioTexCoord.y),
-    0.5 + 0.5 * sin(ioTexCoord.y),
-    // 0.5 + 0.5 * sin(length(ioColor.rgb)),
-    0,
-    ioColor.a
-  );
-  */
+  fragColor = mix(texture(uniTexture, vTexCoord), vColor, 0.59);
 }

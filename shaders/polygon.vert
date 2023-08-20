@@ -1,14 +1,20 @@
 #version 460 core
 
-in vec2 iVert;
+in vec3 iVert;
 in vec4 iColor;
 in vec2 iTexCoord;
 
-out vec4 ioColor;
-out vec2 ioTexCoord;
+out vec4 vColor;
+out vec2 vTexCoord;
+
+uniform mat3 uTransformation;
 
 void main() {
-  ioColor = iColor;
-  ioTexCoord = iTexCoord;
-  gl_Position = vec4(iVert * 0.7, 1, 1);
+  vColor = iColor;
+  vTexCoord = iTexCoord;
+
+  gl_Position = vec4(
+    uTransformation * iVert,
+    1.0
+  );
 }

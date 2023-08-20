@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"math"
-	"os"
 	"unsafe"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
@@ -19,32 +18,9 @@ type ShaderProgram struct {
 	vertShaderId uint32
 	fragShaderId uint32
 	programId    uint32
-	logger       *log.Logger
-	panicLevel   int
 }
 
-func ReadFile(filename string) (string, error) {
-
-	bytes, err := os.ReadFile(filename)
-
-	if err != nil {
-		return "", err
-	}
-
-	return string(bytes), nil
-}
-
-func (S *ShaderProgram) error(severity int, err error) error {
-	S.logger.Print(err)
-
-	if severity >= S.panicLevel {
-		panic(err)
-	}
-
-	return err
-}
-
-func CreateProgramFromFiles(vertPath, fragPath string) *ShaderProgram {
+func CreateShaderProgramFromFiles(vertPath, fragPath string) *ShaderProgram {
 
 	S := ShaderProgram{
 		uniforms:     make(map[string]int32),
@@ -52,29 +28,32 @@ func CreateProgramFromFiles(vertPath, fragPath string) *ShaderProgram {
 		vertShaderId: 0,
 		fragShaderId: 0,
 		programId:    0,
-		logger:       log.New(os.Stderr, "shader.go :> ", 0),
-		panicLevel:   0, // errors with a "severity" level higher than panicLevel will cause panic()
 	}
 	var err error
 
 	if S.vertShaderId, err = compileShader(gl.VERTEX_SHADER, vertPath); err != nil {
-		panic(S.error(1, err))
+		GlPanic(err)
 	}
 
 	if S.fragShaderId, err = compileShader(gl.FRAGMENT_SHADER, fragPath); err != nil {
-		panic(S.error(1, err))
+		GlPanic(err)
 	}
 
 	S.programId = gl.CreateProgram()
 	gl.AttachShader(S.programId, S.vertShaderId)
 	gl.AttachShader(S.programId, S.fragShaderId)
 	gl.LinkProgram(S.programId)
-	defer S.CleanupShaders()
 
 	if err := S.getLinkError(); err != nil {
-		panic(S.error(2, fmt.Errorf("could not link shaders. %v", err)))
+		GlPanic(fmt.Errorf("could not link shaders. %v", err))
 	}
 
+	gl.DetachShader(S.programId, S.vertShaderId)
+	gl.DetachShader(S.programId, S.fragShaderId)
+	gl.DeleteShader(S.vertShaderId)
+	gl.DeleteShader(S.fragShaderId)
+
+	AssertGLOK("CreateShaderFromFile")
 	return &S
 }
 
@@ -85,11 +64,11 @@ func (S *ShaderProgram) getAttribLocation(name string) (uint32, error) {
 		return loc, nil
 	}
 
-	attr := gl.GetAttribLocation(S.programId, Str(name))
+	attr := gl.GetAttribLocation(S.programId, GlStr(name))
 
 	if attr < 0 {
 		err := fmt.Errorf("could not get location of attribute '%s'", name)
-		return math.MaxUint32, S.error(1, err)
+		return math.MaxUint32, GlProbablePanic(err)
 	}
 
 	S.attribs[name] = uint32(attr)
@@ -104,11 +83,16 @@ func (S *ShaderProgram) getUniformLocation(name string) (int32, error) {
 		return loc, nil
 	}
 
-	attr := gl.GetUniformLocation(S.programId, Str(name))
+	if loc == -1 {
+		return -1, errors.New("not found")
+	}
+
+	attr := gl.GetUniformLocation(S.programId, GlStr(name))
 
 	if attr < 0 {
 		err := fmt.Errorf("could not get location of uniform '%s'", name)
-		return math.MaxInt32, S.error(1, err)
+		S.uniforms[name] = -1
+		return math.MaxInt32, err
 	}
 
 	S.uniforms[name] = attr
@@ -125,7 +109,7 @@ func (s *ShaderProgram) SetUniformAttr(name string, value interface{}) error {
 
 	switch typ := value.(type) {
 	case int32:
-		value := int32(value.(int))
+		value := int32(value.(int32))
 		gl.Uniform1iv(loc, 1, &value)
 	case float32:
 		value := value.(float32)
@@ -139,33 +123,12 @@ func (s *ShaderProgram) SetUniformAttr(name string, value interface{}) error {
 	case mgl32.Vec4:
 		value := value.(mgl32.Vec4)
 		gl.Uniform4fv(loc, 1, &value[0])
-	case mgl32.Mat2:
-		value := value.(mgl32.Mat2)
-		gl.UniformMatrix2fv(loc, 1, false, &value[0])
-	case mgl32.Mat2x3:
-		value := value.(mgl32.Mat2x3)
-		gl.UniformMatrix2x3fv(loc, 1, false, &value[0])
-	case mgl32.Mat2x4:
-		value := value.(mgl32.Mat2x4)
-		gl.UniformMatrix2x4fv(loc, 1, false, &value[0])
 	case mgl32.Mat3:
 		value := value.(mgl32.Mat3)
 		gl.UniformMatrix3fv(loc, 1, false, &value[0])
-	case mgl32.Mat3x2:
-		value := value.(mgl32.Mat3x2)
-		gl.UniformMatrix3x2fv(loc, 1, false, &value[0])
-	case mgl32.Mat3x4:
-		value := value.(mgl32.Mat3x4)
-		gl.UniformMatrix3x4fv(loc, 1, false, &value[0])
-	case mgl32.Mat4:
-		value := value.(mgl32.Mat4)
-		gl.UniformMatrix4fv(loc, 1, false, &value[0])
-	case mgl32.Mat4x2:
-		value := value.(mgl32.Mat4x2)
-		gl.UniformMatrix4x2fv(loc, 1, false, &value[0])
-	case mgl32.Mat4x3:
-		value := value.(mgl32.Mat4x3)
-		gl.UniformMatrix4x3fv(loc, 1, false, &value[0])
+	case *Texture:
+		value := value.(*Texture).GetTextureUnit()
+		gl.Uniform1iv(loc, 1, &value)
 	default:
 		return fmt.Errorf("unsupported data type: %v", typ)
 	}
@@ -177,7 +140,7 @@ func (S *ShaderProgram) DisableVertexAttribArray(name string) {
 	location, err := S.getAttribLocation(name)
 
 	if err != nil {
-		panic(S.error(2, fmt.Errorf("DisableVertexAttribArray: %s", err)))
+		GlPanic(fmt.Errorf("DisableVertexAttribArray: %s", err))
 	}
 
 	gl.EnableVertexAttribArray(location)
@@ -190,7 +153,7 @@ func (S *ShaderProgram) EnableVertexAttribArray(name string) {
 	location, err := S.getAttribLocation(name)
 
 	if err != nil {
-		panic(S.error(2, fmt.Errorf("EnableVertexAttribArray: %s", err)))
+		GlPanic(fmt.Errorf("EnableVertexAttribArray: %s", err))
 	}
 
 	gl.EnableVertexAttribArray(location)
@@ -201,7 +164,7 @@ func (S *ShaderProgram) EnableVertexAttribArray(name string) {
 func (S *ShaderProgram) VertexAttribPointer(name string, size int32, xtype uint32, normalized bool, stride int32, pointer unsafe.Pointer) {
 	pos, err := S.getAttribLocation(name)
 	if err != nil {
-		panic(S.error(2, fmt.Errorf("VertexAttribPointer: %v", err)))
+		GlPanic(fmt.Errorf("VertexAttribPointer: %v", err))
 	}
 
 	gl.VertexAttribPointer(
@@ -226,15 +189,6 @@ func (S *ShaderProgram) Destroy() {
 	AssertGLOK("Shader.Destroy")
 }
 
-func (S *ShaderProgram) CleanupShaders() {
-	gl.DetachShader(S.programId, S.vertShaderId)
-	gl.DetachShader(S.programId, S.fragShaderId)
-	gl.DeleteShader(S.vertShaderId)
-	gl.DeleteShader(S.fragShaderId)
-
-	AssertGLOK("Shader.CleanupShaders")
-}
-
 func (S *ShaderProgram) getLinkError() error {
 
 	var link_status int32
@@ -242,10 +196,8 @@ func (S *ShaderProgram) getLinkError() error {
 	gl.GetProgramiv(S.programId, gl.LINK_STATUS, &link_status)
 
 	if link_status != gl.TRUE {
-
 		logStr := GetProgramLog(S.programId)
-
-		return errors.New(logStr)
+		return GlProbablePanic(fmt.Errorf("linker Error: %v", logStr))
 	}
 
 	return nil
@@ -273,7 +225,7 @@ func compileShader(shaderType uint32, filePath string) (shader_id uint32, e erro
 	gl.GetShaderiv(shader_id, gl.COMPILE_STATUS, &success)
 
 	if success != gl.TRUE {
-		logStr := GetShaderLog(shader_id)
+		logStr := GetShaderInfoLog(shader_id)
 
 		if logStr == "" {
 			return 0, fmt.Errorf("cannot compile shader '%s'", filePath)
