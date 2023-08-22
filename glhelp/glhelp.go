@@ -108,3 +108,51 @@ func MatMulMany(mats ...mgl32.Mat3) mgl32.Mat3 {
 func MatMulX3(m1, m2, m3 mgl32.Mat3) mgl32.Mat3 {
 	return m1.Mul3(m2).Mul3(m3)
 }
+
+func EnableBlending() {
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
+}
+
+func Lerp(start, end, amt float32) float32 {
+	diff := end - start
+
+	return start + diff*amt
+}
+
+func Sincos(radians float32) (float32, float32) {
+	sin, cos := math.Sincos(float64(radians))
+
+	return float32(sin), float32(cos)
+}
+
+func Enable2D() {
+	gl.Disable(gl.DEPTH_TEST)
+	gl.Disable(gl.CULL_FACE)
+
+}
+
+func Wireframe(on bool) {
+	if on {
+		gl.PolygonMode(gl.FRONT_AND_BACK, gl.LINE)
+		return
+	}
+
+	gl.PolygonMode(gl.FRONT_AND_BACK, gl.FILL)
+}
+
+func Min(a, b float32) float32 {
+	if a < b {
+		return a
+	}
+
+	return b
+}
+
+func Max(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+
+	return b
+}

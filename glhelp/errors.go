@@ -28,6 +28,12 @@ func GlPanic(err error) {
 	panic(err)
 }
 
+func GlPanicIfErrNotNil(err error) {
+	if err != nil {
+		GlPanic(err)
+	}
+}
+
 // Panic if AlwaysPanic == true
 // Always log if AlwaysLog == true
 // if AlwaysLog and AlwaysPanic are false,
@@ -45,6 +51,7 @@ func GlProbablePanic(err error) error {
 	return err
 }
 
+// Checks if there are any opengl errors in the queue and panics if necessary
 func AssertGLOK(values ...interface{}) error {
 	errCode := gl.GetError()
 

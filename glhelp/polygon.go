@@ -1,6 +1,7 @@
 package glhelp
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"math"
@@ -20,35 +21,79 @@ type Polygon struct {
 	vao         uint32         // Vector Attribute Object
 	buffers     [4]uint32      // our 4 buffers
 
-	wPosX     float32 // The X position of the object - in world coordinates
-	wPosY     float32 // The Y position of the object - in world coordinates
-	wScaleX   float32 // The x-scaling of the object - in world coordinates
-	wScaleY   float32 // The y-scaling of the object - in world coordinates
-	wRotation float32 // the rotation, relative to the world's X-axis, of the object - in radians
+	colorMix  float32    // how to mix the colors of the vertices and the texture 0 = pure texture, 1 = pure color
+	uniColor  mgl32.Vec4 // how to mix the colors of the vertices and the texture 0 = pure texture, 1 = pure color
+	wPosX     float32    // The X position of the object - in world coordinates
+	wPosY     float32    // The Y position of the object - in world coordinates
+	wScaleX   float32    // The x-scaling of the object - in world coordinates
+	wScaleY   float32    // The y-scaling of the object - in world coordinates
+	wRotation float32    // the rotation, relative to the world's X-axis, of the object - in radians
+	wireframe bool
+
+	isCopy bool // is this a clone
 }
 
-type PolygonChanel chan *Polygon
-
-func GoCreatePolygon(result PolygonChanel, sides int, colors []float32, texFilePath string) {
-	go func() {
-		result <- CreatePolygon(sides, colors, texFilePath)
-	}()
+type PolygonOptions struct {
+	VertColors      []float32
+	UniversalColor  *mgl32.Vec4
+	TextureFilePath string
+	TextureObj      *Texture
+	ShaderObj       *ShaderProgram
+	FragShaderFile  string
+	VertShaderFile  string
 }
 
-func CreatePolygon(sides int, colors []float32, texFilePath string) *Polygon {
+func (O *PolygonOptions) Verify() (err []error) {
+	textureConflict := O.TextureFilePath != "" && O.TextureObj != nil
+	if textureConflict {
+		err = append(err, errors.New("you cannot declare a texture object and a texture file path at the same time"))
+	}
+
+	fragShaderConflict := O.ShaderObj != nil && O.FragShaderFile != ""
+	if fragShaderConflict {
+		err = append(err, errors.New("you cannot declare frag shader file path as well as a shader object at the same time"))
+	}
+
+	vertShaderConflict := O.ShaderObj != nil && O.FragShaderFile != ""
+	if vertShaderConflict {
+		err = append(err, errors.New("you cannot declare a vert shader file path as well as a shader object at the same time"))
+	}
+
+	if (O.FragShaderFile == "" && O.VertShaderFile != "") || (O.FragShaderFile != "" && O.VertShaderFile == "") {
+		err = append(err, errors.New("you must either declare both a vertex shader and a frag shader file path - or none of them"))
+	}
+
+	if O.UniversalColor != nil && len(O.VertColors) > 0 {
+		err = append(err, errors.New("you must declare UniversalColor OR VertColors - not both"))
+	}
+
+	return err
+}
+
+// Create a 1x1 square that is axis-aligned and centered on the origin
+func CreateSprite(texFilePath string) *Polygon {
+	return CreatePolygonAdv(
+		4,
+		45*Degrees,
+		math.Sqrt2,
+		math.Sqrt2,
+		[]float32{},
+		texFilePath,
+	)
+}
+
+func CreatePolygonAdv(sides int, angleOffset, width, height float64, colors []float32, texFilePath string) *Polygon {
 
 	/// https://faun.pub/draw-circle-in-opengl-c-2da8d9c2c103
 
-	tau := math.Pi * 2
-
-	anglePerSide := tau / float64(sides)
+	anglePerSide := Tau / float64(sides)
 
 	triangleCount := sides - 2
 
 	var verts []float32
 	var texCoords []float32
 	var indeces []uint32
-	var actualColors []float32
+	var vertexColors []float32
 
 	switch len(colors) {
 	case sides * 4:
@@ -56,25 +101,24 @@ func CreatePolygon(sides int, colors []float32, texFilePath string) *Polygon {
 	case 0:
 		// zero colors: OK
 		for i := 0; i < sides; i++ {
-			actualColors = append(actualColors, float32(1), float32(1), float32(1), float32(1))
+			vertexColors = append(vertexColors, float32(1), float32(1), float32(1), float32(1))
 		}
 	case 4:
 		// one single color: OK
-		actualColors = append(actualColors, colors[0], colors[1], colors[2], colors[3])
+		for i := 0; i < sides; i++ {
+			vertexColors = append(vertexColors, colors[0], colors[1], colors[2], colors[3])
+		}
 	default:
-		log.Printf("To create a %d-sided polygon, you must supply 0, 1, or %d colors = 0, 4, or %d floats\n",
-			sides, sides, sides*4)
-		panic("Invalid number of colors.")
-
+		GlPanic(
+			fmt.Errorf("to create a %d-sided polygon, you must supply 0, 1, or %d colors = 0, 4, or %d floats", sides, sides, sides*4),
+		)
 	}
 
-	offset := 0.0
-
 	for i := 0; i < sides; i++ {
-		angle := anglePerSide*float64(i) + offset
+		angle := anglePerSide*float64(i) + angleOffset
 
 		y, x := math.Sincos(angle)
-		fx, fy := float32(x), float32(y)
+		fx, fy := float32(x*width), float32(y*height)
 
 		texCoords = append(texCoords, 0.5-0.5*fx, 0.5-0.5*fy)
 		verts = append(verts, fx, fy, 1.0)
@@ -94,17 +138,51 @@ func CreatePolygon(sides int, colors []float32, texFilePath string) *Polygon {
 		panic(err)
 	}
 
+	log.Printf("%+v\n", verts)
+
 	return &Polygon{
 		verts:     verts,
 		indeces:   indeces,
 		texCoords: texCoords,
-		colors:    actualColors,
+		colors:    vertexColors,
 		texture:   texture,
+		colorMix:  0.5,
+		uniColor: [4]float32{
+			vertexColors[0],
+			vertexColors[1],
+			vertexColors[2],
+			vertexColors[3],
+		},
+		wireframe: false,
 	}
 }
 
-// TODO we need the camera matrix in order to do the final calculations
-// TODO enable calculating many tr matrices in one or more goroutines.
+func (Pol *Polygon) GetPos() (float32, float32) {
+	return Pol.wPosX, Pol.wPosY
+}
+
+func (Pol *Polygon) GetPosV() mgl32.Vec2 {
+
+	return mgl32.Vec2{Pol.wPosX, Pol.wPosY}
+}
+
+func (Pol *Polygon) GetScale() (float32, float32) {
+	return Pol.wScaleX, Pol.wScaleY
+}
+
+func (Pol *Polygon) GetScaleV() mgl32.Vec2 {
+
+	return mgl32.Vec2{Pol.wScaleX, Pol.wScaleY}
+}
+
+func (Pol *Polygon) GetRotation() float32 {
+	return Pol.wRotation
+}
+
+func (Pol *Polygon) GetColorMix() float32 {
+	return Pol.colorMix
+}
+
 func (Pol *Polygon) GetTransformationMatrix() mgl32.Mat3 {
 	translate := mgl32.Translate2D(Pol.wPosX, Pol.wPosY)
 	rotate := mgl32.HomogRotate2D(Pol.wRotation)
@@ -117,15 +195,20 @@ func (Pol *Polygon) Draw(camMatrix mgl32.Mat3) {
 	Pol.Initialize()
 	Pol.shader.Use()
 	gl.BindVertexArray(Pol.vao)
+	gl.ActiveTexture(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, Pol.texture.handle)
 
 	trMatrix := MatMulMany(
 		camMatrix,
 		Pol.GetTransformationMatrix(),
 	)
 
+	Pol.shader.SetUniformAttr("uniWireframe", Pol.wireframe)
+	err := Pol.shader.SetUniformAttr("uniColor", Pol.uniColor)
+	GlPanicIfErrNotNil(err)
+	Pol.shader.SetUniformAttr("uniColorMix", Pol.colorMix)
 	Pol.shader.SetUniformAttr("uTransformation", trMatrix)
 
-	// Pol.texture.Bind(gl.TEXTURE0) // This might be necessary when working with multiple textures
 	gl.DrawElements(gl.TRIANGLES, int32(len(Pol.indeces)), gl.UNSIGNED_INT, nil)
 	AssertGLOK("Draw", "D")
 }
@@ -135,15 +218,20 @@ func (Pol *Polygon) Initialize() {
 		return
 	}
 	Pol.initShader()
-	Pol.shader.Use()
 	Pol.initBuffers()
-	Pol.texture.Initialize()
-	Pol.shader.SetUniformAttr("uniTexture", Pol.texture.GetTextureUnit())
+	Pol.initTexture()
 
 	AssertGLOK("Polygon.Initialize")
 	log.Println("Shaders and Buffers are Ready")
 
 	Pol.initialized = true
+}
+
+func (Pol *Polygon) initTexture() {
+	Pol.texture.Initialize()
+	// Pol.shader.SetUniformAttr("uniTexture", 0) // TODO: what ???
+	Pol.shader.SetUniformAttr("uniColorMix", Pol.colorMix)
+	Pol.shader.SetUniformAttr("uniColor", Pol.uniColor)
 }
 
 func (Pol *Polygon) initShader() {
@@ -171,6 +259,8 @@ func (Pol *Polygon) initBuffers() {
 		panic(fmt.Errorf("expected at least 3 elements in the verts array, only got %d", len(Pol.verts)))
 	}
 
+	Pol.shader.Use()
+
 	// Create out buffers
 	// VBO: 0	vertex
 	// EBO: 1	element
@@ -178,48 +268,58 @@ func (Pol *Polygon) initBuffers() {
 	// TBO: 3	texture
 	gl.GenBuffers(int32(len(Pol.buffers)), &Pol.buffers[0])
 
+	//
 	// Vertex Array Object
 	gl.GenVertexArrays(1, &Pol.vao)
 	gl.BindVertexArray(Pol.vao)
 
+	//
 	// Vertex Buffer Object
 	gl.BindBuffer(gl.ARRAY_BUFFER, Pol.buffers[0])
 	gl.BufferData(gl.ARRAY_BUFFER, 4*len(Pol.verts), gl.Ptr(Pol.verts), gl.STATIC_DRAW)
 
 	Pol.shader.EnableVertexAttribArray("iVert")
 	Pol.shader.VertexAttribPointer("iVert", 3, gl.FLOAT, false, 0, nil)
+	defer Pol.shader.DisableVertexAttribArray("iVert")
 
 	//
 	// Element/Index Buffer Object
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, Pol.buffers[1])
-	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, len(Pol.indeces)*4, gl.Ptr(Pol.indeces), gl.STATIC_DRAW)
+	gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, 4*len(Pol.indeces), gl.Ptr(Pol.indeces), gl.STATIC_DRAW)
 
 	//
 	// Color Buffer Object
-	gl.BindBuffer(gl.ARRAY_BUFFER, Pol.buffers[2])
-	gl.BufferData(gl.ARRAY_BUFFER, len(Pol.colors)*4, gl.Ptr(Pol.colors), gl.STATIC_DRAW)
+	if Pol.shader.HasAttrib("iColor") {
+		gl.BindBuffer(gl.ARRAY_BUFFER, Pol.buffers[2])
+		gl.BufferData(gl.ARRAY_BUFFER, 4*len(Pol.colors), gl.Ptr(Pol.colors), gl.STATIC_DRAW)
 
-	Pol.shader.EnableVertexAttribArray("iColor")
-	Pol.shader.VertexAttribPointer("iColor", 4, gl.FLOAT, false, 0, nil)
+		Pol.shader.EnableVertexAttribArray("iColor")
+		Pol.shader.VertexAttribPointer("iColor", 4, gl.FLOAT, false, 0, nil)
+		defer Pol.shader.DisableVertexAttribArray("iColor")
+	}
 
 	//
 	// Texture Buffers
-	gl.BindBuffer(gl.ARRAY_BUFFER, Pol.buffers[3])
-	gl.BufferData(gl.ARRAY_BUFFER, len(Pol.texCoords)*4, gl.Ptr(Pol.texCoords), gl.STATIC_DRAW)
+	if Pol.shader.HasAttrib("iTexCoord") {
+		gl.BindBuffer(gl.ARRAY_BUFFER, Pol.buffers[3])
+		gl.BufferData(gl.ARRAY_BUFFER, 4*len(Pol.texCoords), gl.Ptr(Pol.texCoords), gl.STATIC_DRAW)
+		Pol.shader.EnableVertexAttribArray("iTexCoord")
+		Pol.shader.VertexAttribPointer("iTexCoord", 2, gl.FLOAT, false, 0, nil)
+		defer Pol.shader.DisableVertexAttribArray("iTexCoord")
+	}
 
-	Pol.shader.EnableVertexAttribArray("iTexCoord")
-	Pol.shader.VertexAttribPointer("iTexCoord", 2, gl.FLOAT, false, 0, nil)
-
-	//
-	// cleanup
-	Pol.shader.DisableVertexAttribArray("iVert")
-	Pol.shader.DisableVertexAttribArray("iTexCoord")
 	gl.BindVertexArray(0)
 	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 	gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, 0)
+
+	Pol.texture.Unbind()
 }
 
 func (Pol *Polygon) Destroy() {
+
+	if Pol.isCopy {
+		return
+	}
 
 	Pol.initialized = false
 
@@ -235,9 +335,25 @@ func (Pol *Polygon) Destroy() {
 	AssertGLOK("Polygon.Destroy")
 }
 
+func (Pol *Polygon) SetWireframe(wf bool) {
+	Pol.wireframe = wf
+}
+
+func (Pol *Polygon) GetWireframe() bool {
+	return Pol.wireframe
+}
+
 func (Pol *Polygon) SetPosition(x, y float32) {
 	Pol.wPosX = x
 	Pol.wPosY = y
+}
+
+func (Pol *Polygon) SetColor(uniColor mgl32.Vec4) {
+	Pol.uniColor = uniColor
+}
+
+func (Pol *Polygon) SetColorMix(uniColorMix float32) {
+	Pol.colorMix = uniColorMix
 }
 
 func (Pol *Polygon) Move(dx, dy float32) {
@@ -269,7 +385,6 @@ func (Pol *Polygon) Scale(x, y float32) {
 
 func (Pol *Polygon) Copy() *Polygon {
 	return &Polygon{
-
 		shader:      Pol.shader,
 		texture:     Pol.texture,
 		initialized: Pol.initialized,
@@ -278,10 +393,14 @@ func (Pol *Polygon) Copy() *Polygon {
 		texCoords:   Pol.texCoords,
 		colors:      Pol.colors,
 		vao:         Pol.vao,
+		buffers:     Pol.buffers,
+		colorMix:    Pol.colorMix,
+		uniColor:    Pol.uniColor,
 		wPosX:       Pol.wPosX,
 		wPosY:       Pol.wPosY,
 		wScaleX:     Pol.wScaleX,
 		wScaleY:     Pol.wScaleY,
 		wRotation:   Pol.wRotation,
+		isCopy:      true,
 	}
 }

@@ -11,14 +11,13 @@ import (
 )
 
 type Texture struct {
-	handle uint32 // id of the texture, equivalent to shader program id and buffer id
-	target uint32 // Usually GL_TEXTURE_2D
-	unit   uint32 // Texture unit. You can bundle many textures together in one unit, and allow the shader to work on all of them
-	wrapR  int32
-	wrapS  int32
-	W      int32
-	H      int32
-	pix    []uint8 // We should be able to reuse pix across many texture objects. OR be able to reuse textures again and again
+	handle uint32
+	// unit   uint32 // for now we always work on unit 0
+	wrapR int32
+	wrapS int32
+	W     int32
+	H     int32
+	pix   []uint8 // We should be able to reuse pix across many texture objects. OR be able to reuse textures again and again
 }
 
 func CreateTextureFromFile(filePath string, wrapR, wrapS int32) (*Texture, error) {
@@ -42,7 +41,6 @@ func CreateTexture(img image.Image, wrapR, wrapS int32) (*Texture, error) {
 	}
 	return &Texture{
 			handle: 0,
-			target: uint32(gl.TEXTURE_2D),
 			wrapS:  wrapS,
 			wrapR:  wrapR,
 			W:      int32(imgRgba.Rect.Size().X),
@@ -55,20 +53,24 @@ func CreateTexture(img image.Image, wrapR, wrapS int32) (*Texture, error) {
 func (T *Texture) Initialize() {
 
 	gl.GenTextures(1, &T.handle)
-
-	T.Bind(gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, T.handle)
+	defer gl.BindTexture(gl.TEXTURE_2D, 0)
 
 	// All of these hardcoded params could be set dynamic,
 	// for instance as properties on the T struct.
 	// Also, we could lazy-exec all of these settings
-	gl.TexParameteri(T.target, gl.TEXTURE_WRAP_R, T.wrapR)
-	gl.TexParameteri(T.target, gl.TEXTURE_WRAP_S, T.wrapS)
-	gl.TexParameteri(T.target, gl.TEXTURE_MIN_FILTER, gl.LINEAR) // minification filter
-	gl.TexParameteri(T.target, gl.TEXTURE_MAG_FILTER, gl.LINEAR) // magnification filter
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_R, T.wrapR)
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, T.wrapS)
+
+	//
+	// https://gregs-blog.com/2008/01/17/opengl-texture-filter-parameters-explained/
+	//gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST_MIPMAP_LINEAR) // minification filter
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST) // minification filter
+	gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)               // magnification filter
 
 	gl.TexImage2D(
-		T.target,         // Target. In our case hardcoded to TEXTURE_2D
-		0,                // quality. 0 is best (I think)
+		gl.TEXTURE_2D,
+		0,
 		gl.SRGB_ALPHA,    // internal format
 		T.W,              // width
 		T.H,              // height
@@ -78,31 +80,22 @@ func (T *Texture) Initialize() {
 		gl.Ptr(T.pix),    // pointer to first pixel
 	)
 
-	gl.GenerateMipmap(T.target)
+	gl.GenerateMipmap(gl.TEXTURE_2D)
+
 	AssertGLOK()
 }
 
-func (T *Texture) Bind(unit uint32) {
-	T.unit = unit
-	gl.ActiveTexture(unit)
-	gl.BindTexture(T.target, T.handle)
+func (T *Texture) GetTextureUnit() int32 {
+	return 0
+}
+
+func (T *Texture) Bind() {
+	gl.BindTexture(gl.TEXTURE_2D, T.handle)
+	gl.ActiveTexture(uint32(T.GetTextureUnit()))
 }
 
 func (T *Texture) Unbind() {
-	if T.unit == 0 {
-		return
-	}
-
-	T.unit = 0
-	gl.BindTexture(T.target, 0)
-}
-
-func (T *Texture) GetTextureUnit() int32 {
-	if T.unit == 0 {
-		GlPanic(fmt.Errorf("texture unit not set"))
-	}
-
-	return int32(T.unit - gl.TEXTURE0)
+	gl.BindTexture(gl.TEXTURE_2D, 0)
 }
 
 func (T *Texture) Destroy() {

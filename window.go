@@ -49,10 +49,10 @@ func initGlfw(options *WindowOptions) (func(), *glfw.Window, error) {
 	version := gl.GoStr(gl.GetString(gl.VERSION))
 	fmt.Println("OpenGL version", version)
 
-	freeFuc := func() {
+	freeFunc := func() {
 		window.Destroy()
 		glfw.Terminate()
 	}
 
-	return freeFuc, window, nil
+	return freeFunc, window, nil
 }

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"unsafe"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
@@ -14,7 +13,7 @@ import (
 // Represents a shader program
 type ShaderProgram struct {
 	uniforms     map[string]int32
-	attribs      map[string]uint32
+	attribs      map[string]int32
 	vertShaderId uint32
 	fragShaderId uint32
 	programId    uint32
@@ -24,7 +23,7 @@ func CreateShaderProgramFromFiles(vertPath, fragPath string) *ShaderProgram {
 
 	S := ShaderProgram{
 		uniforms:     make(map[string]int32),
-		attribs:      make(map[string]uint32),
+		attribs:      make(map[string]int32),
 		vertShaderId: 0,
 		fragShaderId: 0,
 		programId:    0,
@@ -60,44 +59,49 @@ func CreateShaderProgramFromFiles(vertPath, fragPath string) *ShaderProgram {
 func (S *ShaderProgram) getAttribLocation(name string) (uint32, error) {
 	loc, found := S.attribs[name]
 
-	if found {
-		return loc, nil
+	if found && loc >= 0 {
+		return uint32(loc), nil
+	} else if found && loc < 0 {
+		return 0, fmt.Errorf("could not get location of attribute '%s'", name)
 	}
 
-	attr := gl.GetAttribLocation(S.programId, GlStr(name))
+	loc = gl.GetAttribLocation(S.programId, GlStr(name))
 
-	if attr < 0 {
-		err := fmt.Errorf("could not get location of attribute '%s'", name)
-		return math.MaxUint32, GlProbablePanic(err)
+	if loc < 0 {
+		S.attribs[name] = -1
+		return 0, fmt.Errorf("could not get location of attribute '%s'", name)
 	}
 
-	S.attribs[name] = uint32(attr)
+	S.attribs[name] = loc
 
-	return uint32(attr), nil
+	return uint32(loc), nil
+}
+
+func (S ShaderProgram) HasAttrib(name string) bool {
+	_, err := S.getAttribLocation(name)
+
+	return err == nil
 }
 
 func (S *ShaderProgram) getUniformLocation(name string) (int32, error) {
 	loc, found := S.uniforms[name]
 
-	if found {
+	if found && loc >= 0 {
 		return loc, nil
+	} else if found && loc < 0 {
+		return -1, fmt.Errorf("could not get location of uniform '%s'", name)
 	}
 
-	if loc == -1 {
-		return -1, errors.New("not found")
-	}
+	loc = gl.GetUniformLocation(S.programId, GlStr(name))
 
-	attr := gl.GetUniformLocation(S.programId, GlStr(name))
-
-	if attr < 0 {
-		err := fmt.Errorf("could not get location of uniform '%s'", name)
+	if loc < 0 {
 		S.uniforms[name] = -1
-		return math.MaxInt32, err
+		return -1, fmt.Errorf("could not get location of uniform '%s'", name)
 	}
 
-	S.uniforms[name] = attr
+	S.uniforms[name] = loc
 
-	return attr, nil
+	return loc, nil
 }
 
 func (s *ShaderProgram) SetUniformAttr(name string, value interface{}) error {
@@ -108,6 +112,12 @@ func (s *ShaderProgram) SetUniformAttr(name string, value interface{}) error {
 	}
 
 	switch typ := value.(type) {
+	case bool:
+		tmp := int32(0)
+		if bool(value.(bool)) {
+			tmp = 1
+		}
+		gl.Uniform1iv(loc, 1, &tmp)
 	case int32:
 		value := int32(value.(int32))
 		gl.Uniform1iv(loc, 1, &value)
@@ -130,7 +140,7 @@ func (s *ShaderProgram) SetUniformAttr(name string, value interface{}) error {
 		value := value.(*Texture).GetTextureUnit()
 		gl.Uniform1iv(loc, 1, &value)
 	default:
-		return fmt.Errorf("unsupported data type: %v", typ)
+		return GlProbablePanic(fmt.Errorf("unsupported data type: %v", typ))
 	}
 	return nil
 }
@@ -143,7 +153,7 @@ func (S *ShaderProgram) DisableVertexAttribArray(name string) {
 		GlPanic(fmt.Errorf("DisableVertexAttribArray: %s", err))
 	}
 
-	gl.EnableVertexAttribArray(location)
+	gl.DisableVertexAttribArray(location)
 
 	AssertGLOK("DisableVertexAttribArray")
 }
