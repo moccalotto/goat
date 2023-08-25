@@ -1,6 +1,6 @@
 /// lua utils
 
-package main
+package drawing
 
 import (
 	"fmt"

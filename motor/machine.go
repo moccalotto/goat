@@ -32,7 +32,7 @@ type MachineStruct struct {
 	TextureAtlasses map[string]*h.TextureAtlas   // stores atlasses as "sheet.png", not "sheet.xml"
 	Textures        map[string]*h.Texture        // Pointers to all active textures
 	Renderables     map[string]*SpriteRenderable // Renderables are things that can be rendered (or that can render themselves)
-	Cameras         map[string]*h.Camera         // Contains the projection matrices. You may want to render ceretain things with one cam, and other things with another cam
+	Cameras         map[string]*Camera           // Contains the projection matrices. You may want to render ceretain things with one cam, and other things with another cam
 	Things          []Thing                      // Things that are dawn and updated every cycle
 	Groups          map[string][]Thing           // Named arrays of things. So you can draw (physupdate) groups of things by themselves.
 	Timing
@@ -46,7 +46,7 @@ func Start() {
 		TextureAtlasses: make(map[string]*h.TextureAtlas),
 		Textures:        make(map[string]*h.Texture),
 		Renderables:     make(map[string]*SpriteRenderable),
-		Cameras:         make(map[string]*h.Camera),
+		Cameras:         make(map[string]*Camera),
 	}
 }
 

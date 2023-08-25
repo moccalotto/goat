@@ -20,15 +20,6 @@ func main() {
 	})
 }
 
-type PolyMap map[*h.Polygon]*h.Polygon
-
-type Weapon struct {
-	Rate     float32           // shots per second
-	LastShot float32           // when was last shot fired
-	NextShot float32           // when can you fire the next shot
-	Fire     func() []m.Thing // Spawn all the necessary shots
-}
-
 const (
 	protBaseAngle = 270 * h.Degrees
 	maxBankAngle  = 5 * h.Degrees
@@ -44,17 +35,14 @@ const (
 
 var (
 	bgScrollSpeed float32 = 0.08
-	maxProtSpeed  float32 = 10
-	camera        *h.Camera
+	camera        *m.Camera
 	window        *glfw.Window
 	background    *m.SpriteThing
 	spriteSheet   *m.SpriteRenderable
 
-	protagonist      *m.SpriteThing
+	protagonist      *Protagonist
 	protShotTemplate *m.SpriteThing
 
-	protDown     bool
-	protUp       bool
 	protShoot    bool
 	lastProtShot float32 = -1.0e10
 
@@ -103,38 +91,6 @@ func Update() {
 	// scroll background
 	bgMove := bgScrollSpeed * m.Machine.Delta
 	background.UniSubTexPos = background.UniSubTexPos.Add(mgl32.Vec4{bgMove, 0, bgMove, 0})
-
-	neutralAngle := float32(protBaseAngle)
-	minAngle := neutralAngle - maxBankAngle
-	maxAngle := neutralAngle + maxBankAngle
-	protagonist.Velocity.VelY = 0
-	snapToHigh := neutralAngle + 1*h.Degrees
-	snapToLow := neutralAngle - 1*h.Degrees
-	bankRotSpeed := float32(maxBankAngle) * 3
-	returnRotSpeed := bankRotSpeed * 6
-
-	if protUp && !protDown {
-		// move up
-		protagonist.Velocity.VelY = maxProtSpeed
-		protagonist.Velocity.VelR = bankRotSpeed
-	} else if protDown && !protUp {
-		// move down
-		protagonist.Velocity.VelY = -maxProtSpeed
-		protagonist.Velocity.VelR = -bankRotSpeed
-	} else if protagonist.Trans.GetAll().R > snapToHigh {
-		protagonist.Velocity.VelR = -returnRotSpeed
-	} else if protagonist.Trans.GetAll().R < snapToLow {
-		protagonist.Velocity.VelR = returnRotSpeed
-	} else {
-		protagonist.Velocity.VelR = 0
-		protagonist.Trans.SetRotation(neutralAngle)
-	}
-
-	if protagonist.Trans.GetAll().R > maxAngle {
-		protagonist.Trans.SetRotation(maxAngle)
-	} else if protagonist.Trans.GetAll().R < minAngle {
-		protagonist.Trans.SetRotation(minAngle)
-	}
 
 	// change rotation graduately to point in the direction of "travel"
 	if protShoot {
@@ -199,9 +155,9 @@ func Setup() {
 }
 
 func InitializeSpritesheet() {
-	verts, texCoords, indeces := h.PolygonCoords(4, 45*h.Degrees, math.Sqrt2, math.Sqrt2)
+	verts, texCoords, indeces := h.PolygonCoords(4, 45*h.Degrees, math.Sqrt2/2, math.Sqrt2/2)
 
-	m.Machine.LoadShader("main", "shaders/polygon.vert", "shaders/polygon.frag")
+	m.Machine.LoadShader("main", "shaders/sprite.vert", "shaders/sprite.frag")
 	m.Machine.LoadTextureAtlas("assets/Spritesheet/sheet.xml")
 	spriteSheet = m.CreateSprite("main", "sheet.png", verts, texCoords, indeces)
 	spriteSheet.Finalize()
@@ -218,20 +174,17 @@ func initializeKeyboardHandler() {
 		}
 		keydown := action == glfw.Press
 
-		switch key {
-		case glfw.KeyEscape:
+		protagonist.Up = keydown && key == glfw.KeyUp
+		protagonist.Down = keydown && key == glfw.KeyDown
+		protagonist.Fire = keydown && key == glfw.KeySpace
+
+		if keydown && key == glfw.KeyF1 {
+			wireframe = !wireframe
+			h.Wireframe(wireframe)
+		}
+
+		if keydown && key == glfw.KeyEscape {
 			glfw.GetCurrentContext().SetShouldClose(true)
-		case glfw.KeyUp:
-			protUp = keydown
-		case glfw.KeyDown:
-			protDown = keydown
-		case glfw.KeySpace:
-			protShoot = keydown
-		case glfw.KeyF1:
-			if keydown {
-				wireframe = !wireframe
-				h.Wireframe(wireframe)
-			}
 		}
 	})
 }
@@ -260,17 +213,16 @@ func spawnProtagonistShot() *m.SpriteThing {
 		UniColorMix:  p.UniColorMix,
 	}
 
-	loc := protagonist.Trans.GetAll()
+	loc := protagonist.Loc.GetAll()
 
 	si, co := h.Sincos(loc.R - 270*h.Degrees)
 
 	offsetX, offsetY := loc.ScaleX*co, loc.ScaleY*si
 	shot.Trans.SetPos(loc.X+offsetX, loc.Y+offsetY)
 	shot.Trans.SetRotation(loc.R)
-	shot.Velocity.VelX = shotSpeed * co
-	shot.Velocity.VelY = shotSpeed * si
-	shot.Velocity.VelR = loc.R - protBaseAngle
-	shot.Velocity.VelTR = loc.R - protBaseAngle
+	shot.Velocity.Vec = mgl32.Vec2{co * shotSpeed, si * shotSpeed}
+	shot.Velocity.R = loc.R - protBaseAngle
+	shot.Velocity.TR = loc.R - protBaseAngle
 
 	m.Machine.Things = append(m.Machine.Things, shot)
 
@@ -289,28 +241,40 @@ func initializeProtShotTemplate() {
 	shot.Trans.SetScale(shotSize, shotSize*shotAspect)
 	shot.UniColor = mgl32.Vec4{1, 1, 1, 0}
 	shot.UniColorMix = 0.1
-	shot.Velocity.VelX = 10
+	shot.Velocity.Vec[0] = 10
 	m.Machine.Named["protLaser"] = shot
 	protShotTemplate = shot
 }
 
 func initializeProtagonist() {
 
-	spriteTemplate := &m.SpriteThing{
-		Renderable: spriteSheet,
-		Camera:     camera,
-	}
-	m.Machine.Named["spriteTemplate"] = spriteTemplate
+	// spriteTemplate := &m.SpriteThing{
+	// 	Renderable: spriteSheet,
+	// 	Camera:     camera,
+	// }
+	// m.Machine.Named["spriteTemplate"] = spriteTemplate
 
-	protagonist = spriteTemplate.Clone().(*m.SpriteThing)
+	// protagonist = spriteTemplate.Clone().(*m.SpriteThing)
 
-	protagonist.UniSubTexPos = m.Machine.SubTextures["sheet.png/playerShip1_blue.png"].GetDims()
+	protagonist = CreateProtagonist(
+		spriteSheet,
+		camera,
+	)
+
+	const scale = 2
+
+	protagonist.UseSubSprite("sheet.png/playerShip1_blue.png")
 	protagonist.UniColorMix = 0.5
 	protagonist.UniColor = mgl32.Vec4{1, 1, 1, 0.5}
 
-	protagonist.Trans.SetScale(1, 1)
-	protagonist.Trans.SetRotation(protBaseAngle)
-	protagonist.Trans.SetPos(-maxX+2, 0.0)
+	protagonist.Loc.SetRotation(protBaseAngle)
+	protagonist.Loc.SetPos(-maxX+2, 0.0)
+	protagonist.Loc.SetScale(scale, scale)
+
+	protagonist.MinX = -maxX + scale
+	protagonist.MaxX = maxX - scale
+	protagonist.MinY = -maxY + scale
+	protagonist.MaxY = maxY - scale
 
 	m.Machine.Named["protagonist"] = protagonist
 	m.Machine.Things = append(m.Machine.Things, protagonist)
@@ -340,7 +304,7 @@ func initializeBackground() {
 
 func initializeCamera(options *WindowOptions) {
 
-	camera = h.CreateCamera()
+	camera = m.CreateCamera()
 	camera.SetFrameSize(sceneW, sceneH)
 	camera.SetPosition(0, 0)
 

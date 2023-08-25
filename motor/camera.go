@@ -1,6 +1,8 @@
-package glhelp
+package motor
 
 import (
+	"goat/glhelp"
+
 	"github.com/go-gl/mathgl/mgl32"
 )
 
@@ -11,7 +13,7 @@ type Camera struct {
 	wPosY        float32 // The Y position the camera is looking at - in world coordinates
 	wFrameWidth  float32 // The width of the camera view - in world coordinates
 	wFrameHeight float32 // The height of the camera view - in world coordinates
-	wRotation    float32 // the rotation, relative to the world's X-axis, of the camera - in radians
+	wOrientation float32 // the angle relative to the world's X-axis, of the camera - in radians
 
 	transMatrixCache mgl32.Mat3
 	cacheValid       bool
@@ -23,7 +25,7 @@ func CreateCamera() *Camera {
 		wPosY:        0,
 		wFrameWidth:  2,
 		wFrameHeight: 2,
-		wRotation:    0.0,
+		wOrientation: 0.0,
 	}
 }
 
@@ -34,12 +36,12 @@ func (C *Camera) GetMatrix() mgl32.Mat3 {
 	}
 
 	scale := mgl32.Scale2D(2/C.wFrameWidth, 2/C.wFrameHeight)
-	rotate := mgl32.HomogRotate2D(C.wRotation)
+	rotate := mgl32.HomogRotate2D(C.wOrientation)
 	translate := mgl32.Translate2D(C.wPosX, C.wPosY)
 
 	// Scale, Rotate, Translate: reverse order as when transforming models
 	// this is because a camera can be considered an "inverse" model.
-	C.transMatrixCache = MatMulX3(scale, rotate, translate)
+	C.transMatrixCache = glhelp.MatMulX3(scale, rotate, translate)
 	C.cacheValid = true
 
 	return C.transMatrixCache
@@ -47,12 +49,12 @@ func (C *Camera) GetMatrix() mgl32.Mat3 {
 
 func (C *Camera) Rotate(radians float32) {
 	C.cacheValid = false
-	C.wRotation -= radians // cam movement must be inverted to behave as expected
+	C.wOrientation -= radians // cam movement must be inverted to behave as expected
 }
 
 func (C *Camera) SetRotation(radians float32) {
 	C.cacheValid = false
-	C.wRotation = -radians // cam rotation must be inverted to behave as expected
+	C.wOrientation = -radians // cam rotation must be inverted to behave as expected
 }
 
 func (C *Camera) SetPosition(x, y float32) {

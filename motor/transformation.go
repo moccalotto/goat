@@ -6,7 +6,7 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
-type Transformation struct {
+type UncachedTransformation struct {
 	X,
 	Y,
 	ScaleX,
@@ -14,28 +14,29 @@ type Transformation struct {
 	R float32 // rotation
 }
 
-type CachedTransformation struct {
-	transformation Transformation
-	cacheValid     bool
-	matrixCache    mgl32.Mat3
+// Cache transformation
+type Transformation struct {
+	trans       UncachedTransformation
+	cacheValid  bool
+	matrixCache mgl32.Mat3
 }
 
-func (T *Transformation) GetMatrix() mgl32.Mat3 {
+func (T *UncachedTransformation) GetMatrix() mgl32.Mat3 {
 
 	translate := mgl32.Translate2D(T.X, T.Y)
 	rotate := mgl32.HomogRotate2D(T.R)
 	scale := mgl32.Scale2D(T.ScaleX, T.ScaleY)
 
-	return glhelp.MatMulMany(translate, rotate, scale)
+	return glhelp.MatMulX3(translate, rotate, scale)
 }
 
-func (CT *CachedTransformation) InvalidateCache() {
+func (CT *Transformation) InvalidateCache() {
 	CT.cacheValid = false
 }
 
-func CreateCachedTransformation() CachedTransformation {
-	return CachedTransformation{
-		transformation: Transformation{
+func CreateCachedTransformation() Transformation {
+	return Transformation{
+		trans: UncachedTransformation{
 			X: 1, Y: 1, ScaleX: 1, ScaleY: 1, R: 0,
 		},
 		cacheValid:  true,
@@ -43,57 +44,67 @@ func CreateCachedTransformation() CachedTransformation {
 	}
 }
 
-func (CT *CachedTransformation) SetTransformation(t Transformation) {
+func (CT *Transformation) SetTransformation(t UncachedTransformation) {
 
 	CT.cacheValid = false
-	CT.transformation = t
+	CT.trans = t
 }
 
-func (CT *CachedTransformation) SetPos(x, y float32) {
+func (CT *Transformation) SetPos(x, y float32) {
 
-	CT.cacheValid = CT.cacheValid && (x == CT.transformation.X) && (y == CT.transformation.Y)
+	CT.cacheValid = CT.cacheValid && (x == CT.trans.X) && (y == CT.trans.Y)
 
-	CT.transformation.X = x
-	CT.transformation.Y = y
+	CT.trans.X = x
+	CT.trans.Y = y
 }
 
-func (CT *CachedTransformation) Move(dist mgl32.Vec2) {
+func (CT *Transformation) Move(dist mgl32.Vec2) {
 	CT.SetPos(
-		CT.transformation.X+dist[0],
-		CT.transformation.Y+dist[1],
+		CT.trans.X+dist[0],
+		CT.trans.Y+dist[1],
 	)
 }
 
-func (CT *CachedTransformation) SetRotation(r float32) {
+func (CT *Transformation) SetRotation(r float32) {
 
-	CT.cacheValid = CT.cacheValid && (r == CT.transformation.R)
+	CT.cacheValid = CT.cacheValid && (r == CT.trans.R)
 
-	CT.transformation.R = r
+	CT.trans.R = r
 }
 
-func (CT *CachedTransformation) Rotate(r float32) {
+func (CT *Transformation) Rotate(r float32) {
 	CT.SetRotation(
-		CT.transformation.R + r,
+		CT.trans.R + r,
 	)
 }
 
-func (CT *CachedTransformation) SetScale(sx, sy float32) {
+func (CT *Transformation) SetScale(sx, sy float32) {
 
-	CT.cacheValid = CT.cacheValid && (sx == CT.transformation.ScaleX) && (sy == CT.transformation.ScaleY)
+	CT.cacheValid = CT.cacheValid && (sx == CT.trans.ScaleX) && (sy == CT.trans.ScaleY)
 
-	CT.transformation.ScaleX = sx
-	CT.transformation.ScaleY = sy
+	CT.trans.ScaleX = sx
+	CT.trans.ScaleY = sy
 }
 
-func (CT *CachedTransformation) GetMatrix() mgl32.Mat3 {
+func (CT *Transformation) GetMatrix() mgl32.Mat3 {
 	if !CT.cacheValid {
-		CT.matrixCache = CT.transformation.GetMatrix()
+		CT.matrixCache = CT.trans.GetMatrix()
 	}
 
 	return CT.matrixCache
 
 }
 
-func (CT *CachedTransformation) GetAll() Transformation {
-	return CT.transformation
+func (CT *Transformation) GetAll() UncachedTransformation {
+	return CT.trans
+}
+
+func (CT *Transformation) RestrictedMove(dx, dy, minX, minY, maxX, maxY float32) {
+	x := CT.trans.X + dx
+	y := CT.trans.Y + dy
+
+	x = mgl32.Clamp(x, minX, maxX)
+	y = mgl32.Clamp(y, minY, maxY)
+
+	CT.SetPos(x, y)
 }
