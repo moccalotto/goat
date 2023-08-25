@@ -3,9 +3,10 @@
  * functions that are "system" related.
  *****************************************/
 
-package main
+package drawing
 
 import (
+	h "goat/glhelp"
 	"log"
 	"os"
 	"time"
@@ -19,22 +20,12 @@ func (dm *Drawing) ProcessEvents(maxEventsToProcess ...int) bool {
 	return !dm.window.ShouldClose()
 }
 
-func (dm *Drawing) AddEntity(e Entity) Entity {
-	// NOTE Not thread safe
-	dm.nextEntityId++
-
-	e.SetId(dm.nextEntityId)
-	dm.entities[dm.nextEntityId] = e
-
-	return e
-}
-
 func (dm *Drawing) ForceQuit(code ...int) {
 	exitCode := 0
 	if len(code) > 0 {
 		exitCode = code[0]
 	}
-	StartMainThreadSystem(func() {
+	h.RunOnMain(func() {
 		os.Exit(exitCode)
 	})
 }

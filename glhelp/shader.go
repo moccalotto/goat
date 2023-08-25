@@ -137,7 +137,7 @@ func (s *ShaderProgram) SetUniformAttr(name string, value interface{}) error {
 		value := value.(mgl32.Mat3)
 		gl.UniformMatrix3fv(loc, 1, false, &value[0])
 	case *Texture:
-		value := value.(*Texture).GetTextureUnit()
+		value := int32(value.(*Texture).GetTextureUnit())
 		gl.Uniform1iv(loc, 1, &value)
 	default:
 		return GlProbablePanic(fmt.Errorf("unsupported data type: %v", typ))
@@ -223,6 +223,8 @@ func compileShader(shaderType uint32, filePath string) (shader_id uint32, e erro
 	if (shaderType != gl.VERTEX_SHADER) && (shaderType != gl.FRAGMENT_SHADER) {
 		return 0, errors.New("invalid shader_type argument. Must be GL_FRAGMENT_SHADER or GL_VERTEX_SHADER")
 	}
+
+	shader_id = 0
 
 	shader_id = gl.CreateShader(shaderType)
 	source_bytes, free := gl.Strs(source)

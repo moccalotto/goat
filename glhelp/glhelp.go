@@ -156,3 +156,11 @@ func Max(a, b float32) float32 {
 
 	return b
 }
+
+func Sign(f float32) float32 {
+	if f >= 0 {
+		return 1.0
+	}
+
+	return -1.0
+}

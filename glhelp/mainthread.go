@@ -1,4 +1,4 @@
-package main
+package glhelp
 
 import "runtime"
 

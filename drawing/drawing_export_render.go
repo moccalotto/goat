@@ -1,19 +1,9 @@
 /*****************************************
 * Contains all exported functions that
 * are related to graphics and rendering.
-*
-*
-* TODO: All calls to SDL must be queued,
-* delayed and/or batched such that no SDL
-* calls are made while the lua script is
-* running - maybe except SDL_Delay et al.
-*
-* I should consider using entities for
-* each object i draw on screen
-*
 ******************************************/
 
-package main
+package drawing
 
 import (
 	"math"

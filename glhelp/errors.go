@@ -18,13 +18,13 @@ import (
 var (
 	AlwaysPanic = true
 	AlwaysLog   = true
-	logger      = log.New(os.Stderr, "GLH", log.LstdFlags)
+	Logger      = log.New(os.Stderr, "GLH", log.LstdFlags|log.Lshortfile)
 )
 
 // Log and then panic
 func GlPanic(err error) {
-	logger.Writer().Write(debug.Stack())
-	logger.Println(err)
+	Logger.Writer().Write(debug.Stack())
+	Logger.Println(err)
 	panic(err)
 }
 
@@ -32,6 +32,10 @@ func GlPanicIfErrNotNil(err error) {
 	if err != nil {
 		GlPanic(err)
 	}
+}
+
+func GlLog(s string, v ...any) {
+	Logger.Printf(s, v...)
 }
 
 // Panic if AlwaysPanic == true
@@ -45,7 +49,7 @@ func GlProbablePanic(err error) error {
 	}
 
 	if AlwaysLog {
-		logger.Println(err)
+		Logger.Println(err)
 	}
 
 	return err
@@ -61,6 +65,10 @@ func AssertGLOK(values ...interface{}) error {
 
 	if len(values) == 0 {
 		return GlProbablePanic(fmt.Errorf("openGL error. Code: %d", errCode))
+	}
+
+	for i := 1; i < len(values); i++ {
+		GlLog("%s [%d] %+v", values[0], i, values[i])
 	}
 
 	return GlProbablePanic(fmt.Errorf("[%s] OpenGL Error: Code %d", values[0], errCode))

@@ -1,4 +1,4 @@
-package main
+package drawing
 
 import (
 	"goat/glhelp"
@@ -15,30 +15,22 @@ import (
 
 type Color struct{ R, G, B, A uint8 }
 
-type Entity interface {
-	Draw(dm *Drawing)
-	GetId() uint64
-	SetId(id uint64)
-}
-
 type Drawing struct {
-	window       *glfw.Window      // The window we're drawing on
-	script       *lua.LState       // The lua script we're running
-	scriptFile   string            // filename of the lua script
-	drawFunc     lua.LValue        // The lua function to call to draw
-	prevTime     float64           // time when previous draw phase started (in seconds since program start)
-	nowTime      float64           // time when current draw phase started (in seconds since program start)
-	deltaTime    float64           // number of seconds last draw phase took
-	fgColor      Color             // Foreground color. The color of the "ink" if you will
-	bgColor      Color             // Background color. The color of the "paper"
-	scaleX       float32           // How big (in pixels) are the virtual pixels in the X direction.
-	scaleY       float32           // How big (in pixels) are the virtual pixels in the Y direction.
-	frameRateCap float64           // Maximum allowed number of updates per second. - During this delay no events are processed.
-	stack        []*Drawing        // The stack that allows us to store and recall colors, scales, and other such settings.
-	frameCount   uint64            // The number of calls to draw(). Starts at 1
-	paused       bool              // don't draw until Unpause() is called
-	entities     map[uint64]Entity // list of entities to draw
-	nextEntityId uint64            // total number of entities added
+	window       *glfw.Window // The window we're drawing on
+	script       *lua.LState  // The lua script we're running
+	scriptFile   string       // filename of the lua script
+	drawFunc     lua.LValue   // The lua function to call to draw
+	prevTime     float64      // time when previous draw phase started (in seconds since program start)
+	nowTime      float64      // time when current draw phase started (in seconds since program start)
+	deltaTime    float64      // number of seconds last draw phase took
+	fgColor      Color        // Foreground color. The color of the "ink" if you will
+	bgColor      Color        // Background color. The color of the "paper"
+	scaleX       float32      // How big (in pixels) are the virtual pixels in the X direction.
+	scaleY       float32      // How big (in pixels) are the virtual pixels in the Y direction.
+	frameRateCap float64      // Maximum allowed number of updates per second. - During this delay no events are processed.
+	stack        []*Drawing   // The stack that allows us to store and recall colors, scales, and other such settings.
+	frameCount   uint64       // The number of calls to draw(). Starts at 1
+	paused       bool         // don't draw until Unpause() is called
 	createdAt    uint64
 
 	keydownCallback *lua.LFunction
@@ -64,7 +56,6 @@ func CreateDrawing(window *glfw.Window, scriptFile string) *Drawing {
 		scaleY:       1,
 		frameRateCap: -1.0,
 		stack:        make([]*Drawing, 0),
-		entities:     make(map[uint64]Entity),
 		createdAt:    uint64(time.Now().UnixMilli()),
 	}
 
@@ -126,10 +117,6 @@ func (dm *Drawing) CallDrawFunc() {
 	//********************************************
 	if !dm.paused {
 		luaInvokeFunc("Draw()", dm.script, dm.drawFunc)
-	}
-
-	for _, ent := range dm.entities {
-		ent.Draw(dm)
 	}
 
 	dm.window.SwapBuffers()
@@ -217,22 +204,12 @@ func (dm *Drawing) setupLuaFunctions() {
 	fun("Line", dm.Line)
 	fun("Rectangle", dm.Rectangle)
 	fun("Polygon", dm.Polygon)
-	fun("PolarVector", CreatePolarVector)
-	fun("Vector", CreateVector)
+	fun("PolarVector", CreatePolarLuaVector)
+	fun("Vector", CreateLuaVector)
 
 	/*****************************************
 	 * TEST FUNCTIONS
 	 ****************************************/
 
 	fun("HasKey", dm.HasKey)
-
-	fun("ELine", func(x1, y1, x2, y2 float64) *ELine {
-		el := CreateELine(x1, y1, x2, y2)
-		return dm.AddEntity(el).(*ELine)
-	})
-
-	fun("ELineP", func(pivX, pivY, length, radians float64) *ELine {
-		el := CreateELineX(pivX, pivY, length, radians)
-		return dm.AddEntity(el).(*ELine)
-	})
 }
