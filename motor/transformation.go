@@ -1,17 +1,19 @@
 package motor
 
 import (
+	"fmt"
 	"goat/glhelp"
 
 	"github.com/go-gl/mathgl/mgl32"
 )
 
 type UncachedTransformation struct {
-	X,
-	Y,
-	ScaleX,
-	ScaleY,
-	R float32 // rotation
+	x,
+	y,
+	scaleX,
+	scaleY,
+	r float32 // rotation
+	allowNegative bool
 }
 
 // Cache transformation
@@ -23,9 +25,15 @@ type Transformation struct {
 
 func (T *UncachedTransformation) GetMatrix() mgl32.Mat3 {
 
-	translate := mgl32.Translate2D(T.X, T.Y)
-	rotate := mgl32.HomogRotate2D(T.R)
-	scale := mgl32.Scale2D(T.ScaleX, T.ScaleY)
+	if !T.allowNegative && T.scaleX <= 0 {
+		glhelp.GlPanic(fmt.Errorf("scale must be > 0. But [%.2f, %.2f] given", T.scaleX, T.scaleY))
+	}
+	if !T.allowNegative && T.scaleY <= 0 {
+		glhelp.GlPanic(fmt.Errorf("scale must be > 0. But [%.2f, %.2f] given", T.scaleX, T.scaleY))
+	}
+	translate := mgl32.Translate2D(T.x, T.y)
+	rotate := mgl32.HomogRotate2D(T.r)
+	scale := mgl32.Scale2D(T.scaleX, T.scaleY)
 
 	return glhelp.MatMulX3(translate, rotate, scale)
 }
@@ -37,7 +45,7 @@ func (CT *Transformation) InvalidateCache() {
 func CreateCachedTransformation() Transformation {
 	return Transformation{
 		trans: UncachedTransformation{
-			X: 1, Y: 1, ScaleX: 1, ScaleY: 1, R: 0,
+			x: 1, y: 1, scaleX: 1, scaleY: 1, r: 0,
 		},
 		cacheValid:  true,
 		matrixCache: mgl32.Ident3(),
@@ -52,38 +60,38 @@ func (CT *Transformation) SetTransformation(t UncachedTransformation) {
 
 func (CT *Transformation) SetPos(x, y float32) {
 
-	CT.cacheValid = CT.cacheValid && (x == CT.trans.X) && (y == CT.trans.Y)
+	CT.cacheValid = CT.cacheValid && (x == CT.trans.x) && (y == CT.trans.y)
 
-	CT.trans.X = x
-	CT.trans.Y = y
+	CT.trans.x = x
+	CT.trans.y = y
 }
 
 func (CT *Transformation) Move(dist mgl32.Vec2) {
 	CT.SetPos(
-		CT.trans.X+dist[0],
-		CT.trans.Y+dist[1],
+		CT.trans.x+dist[0],
+		CT.trans.y+dist[1],
 	)
 }
 
 func (CT *Transformation) SetRotation(r float32) {
 
-	CT.cacheValid = CT.cacheValid && (r == CT.trans.R)
+	CT.cacheValid = CT.cacheValid && (r == CT.trans.r)
 
-	CT.trans.R = r
+	CT.trans.r = r
 }
 
 func (CT *Transformation) Rotate(r float32) {
 	CT.SetRotation(
-		CT.trans.R + r,
+		CT.trans.r + r,
 	)
 }
 
 func (CT *Transformation) SetScale(sx, sy float32) {
 
-	CT.cacheValid = CT.cacheValid && (sx == CT.trans.ScaleX) && (sy == CT.trans.ScaleY)
+	CT.cacheValid = CT.cacheValid && (sx == CT.trans.scaleX) && (sy == CT.trans.scaleY)
 
-	CT.trans.ScaleX = sx
-	CT.trans.ScaleY = sy
+	CT.trans.scaleX = sx
+	CT.trans.scaleY = sy
 }
 
 func (CT *Transformation) GetMatrix() mgl32.Mat3 {
@@ -100,8 +108,8 @@ func (CT *Transformation) GetAll() UncachedTransformation {
 }
 
 func (CT *Transformation) RestrictedMove(dx, dy, minX, minY, maxX, maxY float32) {
-	x := CT.trans.X + dx
-	y := CT.trans.Y + dy
+	x := CT.trans.x + dx
+	y := CT.trans.y + dy
 
 	x = mgl32.Clamp(x, minX, maxX)
 	y = mgl32.Clamp(y, minY, maxY)

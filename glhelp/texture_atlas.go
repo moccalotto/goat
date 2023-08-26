@@ -9,10 +9,11 @@ import (
 )
 
 // Struct for an XML texture atlas
-type TextureAtlas struct {
+type AtlasDescriptor struct {
 	XMLName     xml.Name      `xml:"TextureAtlas"`
 	ImagePath   string        `xml:"imagePath,attr"`
 	SubTextures []*SubTexture `xml:"SubTexture"`
+	Texture     *Texture
 }
 
 type SubTexture struct {
@@ -25,38 +26,30 @@ type SubTexture struct {
 	SheetH uint
 }
 
-func (TA *TextureAtlas) GetSubTexture(filename string) (*SubTexture, int) {
+func (TA *AtlasDescriptor) GetSubTexture(filename string) *SubTexture {
 
-	for i, st := range TA.SubTextures {
+	for _, st := range TA.SubTextures {
 		if st.Name == filename {
-			return st, i
+			return st
 		}
 	}
-	return nil, -1
+	return nil
 }
 
-func (st *SubTexture) GetDims() mgl32.Vec4 {
-
-	fsw, fsh := float32(st.SheetW), float32(st.SheetH)
-
-	spriteW := float32(st.Width)
-	spriteH := float32(st.Height)
-
-	spriteX := float32(st.X)
-	spriteY := float32(st.Y)
+func (st *SubTexture) GetDims(sheetW, sheetH float32) mgl32.Vec4 {
 
 	return mgl32.Vec4{
-		spriteX / fsw,
-		spriteY / fsh,
-		(spriteX + spriteW) / fsw,
-		(spriteY + spriteH) / fsh,
+		float32(st.X) / sheetW,
+		float32(st.Y) / sheetH,
+		float32(st.X+st.Width) / sheetW,
+		float32(st.Y+st.Height) / sheetH,
 	}
 }
 
-func LoadTextureAtlas(filePath string) (*TextureAtlas, error) {
+func LoadTextureAtlas(filePath string) (*AtlasDescriptor, error) {
 	// Open our xmlFile
 	xmlFile, err := os.Open(filePath)
-	// if we os.Open returns an error then handle it
+	// if os.Open returns an error then handle it
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +57,7 @@ func LoadTextureAtlas(filePath string) (*TextureAtlas, error) {
 
 	byteValue, _ := io.ReadAll(xmlFile)
 
-	var textureAtlas TextureAtlas
+	var textureAtlas AtlasDescriptor
 
 	err = xml.Unmarshal(byteValue, &textureAtlas)
 

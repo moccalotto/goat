@@ -21,37 +21,28 @@ func main() {
 }
 
 const (
-	protBaseAngle = 270 * h.Degrees
-	maxBankAngle  = 5 * h.Degrees
-	sceneW        = 30
-	sceneH        = 20
-	WinResFactor  = 100        // pixels per "square"
-	maxY          = sceneH / 2 // (screen  height in px) / ( 100 * 2)
-	maxX          = sceneW / 2 // (screen  width in px) / ( 100 * 2)
-	shotDelay     = 0.1        // this should be dynamic, depending on what weapon the player has
-	shotSpeed     = 15         // this should depend on the player's weapon
-	maxProtShots  = 20         // this should depend on the player's wepaon
+	SCENE_W        = 20
+	SCENE_H        = SCENE_W * 9 / 16
+	PX_FACTOR      = 150 // pixels per "square"
+	CAMERA_ID      = "mainCamera"
+	SHADER_ID      = "shaders/sprite"
+	BACKGROUND_TEX = "Backgrounds/purple.png"
+	ATLAS_ID       = "Spritesheet/sheet.xml"
+	HERO_TEX_ID    = "playerShip1_blue.png"
 )
 
 var (
-	bgScrollSpeed float32 = 0.08
-	camera        *m.Camera
-	window        *glfw.Window
-	background    *m.SpriteThing
-	spriteSheet   *m.SpriteRenderable
+	gScrollSpeed      float32 = 0.08
+	gCamera           *m.Camera
+	gWindow           *glfw.Window
+	gBackgroundEntity *m.BasicEntity
+	gGodSprite        *m.Sprite
+	gHero             *m.BasicEntity
 
-	protagonist      *Protagonist
-	protShotTemplate *m.SpriteThing
-
-	protShoot    bool
-	lastProtShot float32 = -1.0e10
-
-	wireframe bool
-
-	windowOptions *WindowOptions = &WindowOptions{
+	gWindowOptions *WindowOptions = &WindowOptions{
 		Title:     "GOAT",
-		Width:     sceneW * 100,
-		Height:    sceneH * 100,
+		Width:     SCENE_W * PX_FACTOR,
+		Height:    SCENE_H * PX_FACTOR,
 		Resizable: false,
 	}
 )
@@ -60,14 +51,19 @@ var (
 // must run on mainthread
 func actualMain() {
 
-	Setup()
+	///
+	/// MUST BE THE FIRST THING WE DO
+	////////////////////////////////////////////
+	_, _window, err := initGlfw(gWindowOptions)
+	h.GlPanicIfErrNotNil(err)
+	gWindow = _window
 
-	h.EnableBlending()
+	Setup()
 
 	//
 	// timing and bookkeeping variables
 
-	for !window.ShouldClose() {
+	for !gWindow.ShouldClose() {
 
 		h.ClearScreenF(0, 0, 0, 0)
 
@@ -76,7 +72,7 @@ func actualMain() {
 		Update()
 		Draw()
 
-		window.SwapBuffers()
+		gWindow.SwapBuffers()
 		h.AssertGLOK("EndOfDraw")
 		glfw.PollEvents()
 
@@ -87,18 +83,6 @@ func actualMain() {
 // UPDATE
 // //////////////////////////////////////////////////////////////////
 func Update() {
-
-	// scroll background
-	bgMove := bgScrollSpeed * m.Machine.Delta
-	background.UniSubTexPos = background.UniSubTexPos.Add(mgl32.Vec4{bgMove, 0, bgMove, 0})
-
-	// change rotation graduately to point in the direction of "travel"
-	if protShoot {
-		protagonistShoots()
-	}
-
-	m.Machine.UpdateThings()
-
 	{
 		// do a bunch of gofunc
 		// Update all shots (in a goroutine)
@@ -126,10 +110,15 @@ func Update() {
 // * Explosions and effects
 // //////////////////////////////////////////////////////////////////
 func Draw() {
-	//
-	// Here you can draw unmanaged things
-	//
-	m.Machine.DrawThings()
+
+	///
+	/// scroll background
+	//////////////////////
+	bgMove := gScrollSpeed * m.Machine.Delta
+	gBackgroundEntity.UniSubTexPos = gBackgroundEntity.UniSubTexPos.Add(mgl32.Vec4{bgMove, 0, bgMove, 0})
+
+	gBackgroundEntity.Draw()
+	gHero.Draw()
 }
 
 // //////////////////////////////////////////////////////////////////
@@ -137,31 +126,80 @@ func Draw() {
 // //////////////////////////////////////////////////////////////////
 func Setup() {
 
+	h.EnableBlending()
+
 	m.Start()
 
-	_, _window, err := initGlfw(windowOptions)
-	h.GlPanicIfErrNotNil(err)
-	window = _window
+	m.Machine.AssetPath = "assets"
 
-	glfw.GetCurrentContext().SetInputMode(glfw.CursorMode, glfw.CursorHidden)
+	// initCamera must do that pretty early
+	initializeCamera(gWindowOptions)
 
-	InitializeSpritesheet()
-
-	initializeCamera(windowOptions)
-	initializeBackground()
-	initializeProtagonist()
-	initializeProtShotTemplate()
 	initializeKeyboardHandler()
+	initializeGodSprite()
+	initializeBackground()
+	initializeHero()
 }
 
-func InitializeSpritesheet() {
-	verts, texCoords, indeces := h.PolygonCoords(4, 45*h.Degrees, math.Sqrt2/2, math.Sqrt2/2)
+func initializeHero() {
+	sprite := gGodSprite.Clone()
 
-	m.Machine.LoadShader("main", "shaders/sprite.vert", "shaders/sprite.frag")
-	m.Machine.LoadTextureAtlas("assets/Spritesheet/sheet.xml")
-	spriteSheet = m.CreateSprite("main", "sheet.png", verts, texCoords, indeces)
-	spriteSheet.Finalize()
-	m.Machine.Renderables["main"] = spriteSheet
+	gHero = &m.BasicEntity{
+		Renderable:   sprite,
+		Camera:       gCamera,
+		UniColor:     mgl32.Vec4{1, 1, 1, 1},
+		UniColorMix:  0.5,
+		UniSubTexPos: m.Machine.GetDimsForSubtexture(ATLAS_ID, HERO_TEX_ID),
+	}
+
+	gHero.SetScale(1, 1)
+	gHero.Rotate(-90 * h.Degrees)
+}
+
+// /
+// /
+// / BACKGROUND
+// //////////////////////////////////////////////
+func initializeBackground() {
+	// verts, texCoords, indeces := h.SquareCoords()
+	scale := math.Sqrt2 / 2
+	verts, texCoords, indeces := h.PolygonCoords(4, 45*h.Degrees, scale, scale)
+
+	bgSprite := m.CreateSprite(SHADER_ID, BACKGROUND_TEX, verts, texCoords, indeces)
+	bgSprite.Texture.SetRepeatS()
+	bgSprite.Finalize()
+
+	gBackgroundEntity = &m.BasicEntity{
+		Renderable:   bgSprite,
+		Camera:       gCamera,
+		UniColor:     mgl32.Vec4{},
+		UniColorMix:  0.0,
+		UniSubTexPos: mgl32.Vec4{0, 0, 1, 1},
+	}
+	gBackgroundEntity.SetScale(SCENE_W-2, SCENE_H-2)
+}
+
+// /
+// /
+// / CAMERA
+// //////////////////////////////////////////////
+func initializeCamera(options *WindowOptions) {
+
+	gCamera = m.Machine.GetCamera(CAMERA_ID)
+	gCamera.SetFrameSize(SCENE_W, SCENE_H)
+	gCamera.SetPosition(0, 0)
+
+	m.Machine.Cameras[CAMERA_ID] = gCamera
+}
+
+// /
+// /
+// / The main sprite that all other sprites are copied from
+// //////////////////////////////////////////////
+func initializeGodSprite() {
+	verts, texCoords, indeces := h.SquareCoords()
+	gGodSprite = m.CreateSpriteFromAtlas(SHADER_ID, ATLAS_ID, HERO_TEX_ID, verts, texCoords, indeces)
+	gGodSprite.Finalize()
 }
 
 // //////////////////////////////////////////////////////////////////
@@ -174,139 +212,8 @@ func initializeKeyboardHandler() {
 		}
 		keydown := action == glfw.Press
 
-		protagonist.Up = keydown && key == glfw.KeyUp
-		protagonist.Down = keydown && key == glfw.KeyDown
-		protagonist.Fire = keydown && key == glfw.KeySpace
-
-		if keydown && key == glfw.KeyF1 {
-			wireframe = !wireframe
-			h.Wireframe(wireframe)
-		}
-
 		if keydown && key == glfw.KeyEscape {
 			glfw.GetCurrentContext().SetShouldClose(true)
 		}
 	})
-}
-
-func protagonistShoots() {
-	if m.Machine.Now < lastProtShot+shotDelay {
-		return
-	}
-
-	// TODO: More logic about if prot can fire
-
-	spawnProtagonistShot()
-	lastProtShot = m.Machine.Now
-}
-
-func spawnProtagonistShot() *m.SpriteThing {
-	p := protShotTemplate
-
-	// must have a clone feature
-	shot := &m.SpriteThing{
-		Renderable:   p.Renderable,
-		Camera:       p.Camera,
-		Trans:        p.Trans,
-		UniSubTexPos: p.UniSubTexPos,
-		UniColor:     p.UniColor,
-		UniColorMix:  p.UniColorMix,
-	}
-
-	loc := protagonist.Loc.GetAll()
-
-	si, co := h.Sincos(loc.R - 270*h.Degrees)
-
-	offsetX, offsetY := loc.ScaleX*co, loc.ScaleY*si
-	shot.Trans.SetPos(loc.X+offsetX, loc.Y+offsetY)
-	shot.Trans.SetRotation(loc.R)
-	shot.Velocity.Vec = mgl32.Vec2{co * shotSpeed, si * shotSpeed}
-	shot.Velocity.R = loc.R - protBaseAngle
-	shot.Velocity.TR = loc.R - protBaseAngle
-
-	m.Machine.Things = append(m.Machine.Things, shot)
-
-	return shot
-}
-
-func initializeProtShotTemplate() {
-	dims := m.Machine.SubTextures["sheet.png/laserBlue01.png"].GetDims()
-	shotAspect := dims[0] / dims[1]
-	shot := &m.SpriteThing{
-		Renderable:   spriteSheet,
-		Camera:       camera,
-		UniSubTexPos: dims,
-	}
-	const shotSize = 0.2
-	shot.Trans.SetScale(shotSize, shotSize*shotAspect)
-	shot.UniColor = mgl32.Vec4{1, 1, 1, 0}
-	shot.UniColorMix = 0.1
-	shot.Velocity.Vec[0] = 10
-	m.Machine.Named["protLaser"] = shot
-	protShotTemplate = shot
-}
-
-func initializeProtagonist() {
-
-	// spriteTemplate := &m.SpriteThing{
-	// 	Renderable: spriteSheet,
-	// 	Camera:     camera,
-	// }
-	// m.Machine.Named["spriteTemplate"] = spriteTemplate
-
-	// protagonist = spriteTemplate.Clone().(*m.SpriteThing)
-
-	protagonist = CreateProtagonist(
-		spriteSheet,
-		camera,
-	)
-
-	const scale = 2
-
-	protagonist.UseSubSprite("sheet.png/playerShip1_blue.png")
-	protagonist.UniColorMix = 0.5
-	protagonist.UniColor = mgl32.Vec4{1, 1, 1, 0.5}
-
-	protagonist.Loc.SetRotation(protBaseAngle)
-	protagonist.Loc.SetPos(-maxX+2, 0.0)
-	protagonist.Loc.SetScale(scale, scale)
-
-	protagonist.MinX = -maxX + scale
-	protagonist.MaxX = maxX - scale
-	protagonist.MinY = -maxY + scale
-	protagonist.MaxY = maxY - scale
-
-	m.Machine.Named["protagonist"] = protagonist
-	m.Machine.Things = append(m.Machine.Things, protagonist)
-}
-
-func initializeBackground() {
-	verts, texCoords, indeces := h.PolygonCoords(4, 45*h.Degrees, math.Sqrt2/2, math.Sqrt2/2)
-	m.Machine.LoadTexture("background", "assets/Backgrounds/purple.png")
-
-	bgRenderable := m.CreateSprite("main", "background", verts, texCoords, indeces)
-	bgRenderable.Texture.SetRepeatS()
-	bgRenderable.Finalize()
-
-	background = &m.SpriteThing{
-		Renderable: bgRenderable,
-		Camera:     camera,
-	}
-	background.Trans.SetPos(0, 0)
-	background.Trans.SetScale(sceneW-2, sceneH-2)
-	background.UniColor = mgl32.Vec4{1, 1, 1, 1}
-	background.UniColorMix = 0.0
-	background.UniSubTexPos = mgl32.Vec4{0, 0, 1, 1}
-
-	m.Machine.Named["background"] = background
-	m.Machine.Things = append(m.Machine.Things, background)
-}
-
-func initializeCamera(options *WindowOptions) {
-
-	camera = m.CreateCamera()
-	camera.SetFrameSize(sceneW, sceneH)
-	camera.SetPosition(0, 0)
-
-	m.Machine.Cameras["main"] = camera
 }

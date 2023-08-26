@@ -6,6 +6,15 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
+func SquareCoords() (verts []float32, texCoords []float32, indeces []uint32) {
+
+	verts = []float32{0.5, 0.5, 1, -0.5, 0.5, 1, -0.5, -0.5, 1, 0.5, -0.5, 1}
+	texCoords = []float32{1, 0, 0, 0, 0, 1, 1, 1}
+	indeces = []uint32{0, 1, 2, 0, 2, 3}
+
+	return
+}
+
 // Create a 1x1 square that is axis-aligned and centered on the origin
 func PolygonCoords(sides int, angleOffset, width, height float64) (verts []float32, texCoords []float32, indeces []uint32) {
 	anglePerSide := Tau / float64(sides)

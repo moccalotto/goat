@@ -1,4 +1,3 @@
-
 CUSTOM PROTAGONIST CLASS 
 ========================
 * Implements Draw() and Update()

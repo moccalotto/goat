@@ -17,7 +17,17 @@ end
 
 local i = 0.0
 function Draw()
-   i = i + 0.05
-   local rfactor = math.min(255, 128.0 + math.cos(i) * 128)
-   Background(254, rfactor, 128, 255)
+
+   local sheet = SpriteSheet("assets/Spritesheets/sheet.xml") -- load if necessesary, otherwise retrieve from cache
+
+   BlueLaserSprite = sheet.GetSprite("blueLaser")  -- image is already in mem, just load subsprite coords
+
+   BlueLaserSprite.Add(
+      Accelerator()     -- this object accelerates the sprite in a given direction. But it needs to be told its acceleration
+   )
+
+   TGroup("projectiles")
+      :Add(BlueLaserSprite)
+      :Draw()
+   
 end
