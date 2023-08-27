@@ -164,3 +164,19 @@ func Sign(f float32) float32 {
 
 	return -1.0
 }
+
+func Hypot(a, b float32) float32 {
+	return float32(math.Hypot(float64(a), float64(b)))
+}
+
+func NormalizeAngle(r float32) float32 {
+	for r > Tau {
+		r -= Tau
+	}
+
+	for r < 0 {
+		r += Tau
+	}
+
+	return r
+}

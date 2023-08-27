@@ -1,38 +1,50 @@
 package motor
 
 import (
+	"log"
+	"time"
+
 	"github.com/go-gl/mathgl/mgl32"
 )
 
 type BasicEntity struct {
-	Renderable     *Sprite
-	Camera         *Camera
-	Transformation // create struct. Contains x,y, rot, scalex, scaley, and can calc and cache the translation matrix
-	UniSubTexPos   mgl32.Vec4
-	UniColor       mgl32.Vec4
-	UniColorMix    float32
+	Renderable   *Sprite
+	Camera       *Camera
+	Position     // create struct. Contains x,y, rot, scalex, scaley, and can calc and cache the translation matrix
+	UniSubTexPos mgl32.Vec4
+	UniColor     mgl32.Vec4
+	UniColorMix  float32
+	forces       map[string]Force
+
+	// Deleted bool
 }
 
-func (P *BasicEntity) Draw() {
-	camMatrix := P.Camera.GetMatrix()
-	thingMatrix := P.GetMatrix()
+func (E *BasicEntity) Draw() {
+	camMatrix := E.Camera.GetMatrix()
+	thingMatrix := E.GetMatrix()
 
-	P.Renderable.UniSubTexPos = P.UniSubTexPos
-	P.Renderable.UniColorMix = P.UniColorMix
-	P.Renderable.UniColor = P.UniColor
-	P.Renderable.Draw(camMatrix, thingMatrix)
+	log.Printf("%+v\n", thingMatrix)
+	time.Sleep(100 * time.Millisecond)
+
+	E.Renderable.UniSubTexPos = E.UniSubTexPos
+	E.Renderable.UniColorMix = E.UniColorMix
+	E.Renderable.UniColor = E.UniColor
+	E.Renderable.Draw(camMatrix, thingMatrix)
 }
 
-func (P *BasicEntity) Update() {
+func (E *BasicEntity) Update() {
+	for _, force := range E.forces {
+		E.ApplyForce(force, Machine.Delta)
+	}
 }
 
-func (P *BasicEntity) Clone() Entity {
+func (E *BasicEntity) Clone() Entity {
 	return &BasicEntity{
-		Renderable:     P.Renderable,
-		Camera:         P.Camera,
-		Transformation: P.Transformation,
-		UniSubTexPos:   P.UniSubTexPos,
-		UniColor:       P.UniColor,
-		UniColorMix:    P.UniColorMix,
+		Renderable:   E.Renderable,
+		Camera:       E.Camera,
+		Position:     E.Position,
+		UniSubTexPos: E.UniSubTexPos,
+		UniColor:     E.UniColor,
+		UniColorMix:  E.UniColorMix,
 	}
 }

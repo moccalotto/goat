@@ -21,8 +21,14 @@ func main() {
 }
 
 const (
+	SQRT2_HALF     = math.Sqrt2 / 2
 	SCENE_W        = 20
 	SCENE_H        = SCENE_W * 9 / 16
+	MARGIN         = 3
+	MIN_X          = -SCENE_W / 2
+	MAX_X          = SCENE_W / 2
+	MIN_Y          = -SCENE_H / 2
+	MAX_Y          = SCENE_H / 2
 	PX_FACTOR      = 150 // pixels per "square"
 	CAMERA_ID      = "mainCamera"
 	SHADER_ID      = "shaders/sprite"
@@ -79,23 +85,23 @@ func actualMain() {
 	}
 }
 
-// //////////////////////////////////////////////////////////////////
-// UPDATE
-// //////////////////////////////////////////////////////////////////
+// /////////////////////////////////////////////////////////////////
+//
+// # UPDATE
+//
+// *
+// *
+// *
+// *
+// *
+// *
+// *
+// *
+// /////////////////////////////////////////////////////////////////
 func Update() {
-	{
-		// do a bunch of gofunc
-		// Update all shots (in a goroutine)
-		// Update all enemies (in a goroutine)
-		// Update all enemy shots
-	}
 
-	// Cull dead shots
-	// Cull dead enemies
-	// Spawn new enemies (random die roll, chance decreases the more enemies on screen
-	// Spawn obstacles (maybe)
-	// allow enemies to shoot
-	// calculate and handle all shot collisions
+	gHero.Update()
+
 }
 
 // //////////////////////////////////////////////////////////////////
@@ -114,8 +120,8 @@ func Draw() {
 	///
 	/// scroll background
 	//////////////////////
-	bgMove := gScrollSpeed * m.Machine.Delta
-	gBackgroundEntity.UniSubTexPos = gBackgroundEntity.UniSubTexPos.Add(mgl32.Vec4{bgMove, 0, bgMove, 0})
+	bgDist := gScrollSpeed * m.Machine.Delta
+	gBackgroundEntity.UniSubTexPos = gBackgroundEntity.UniSubTexPos.Add(mgl32.Vec4{bgDist, 0, bgDist, 0})
 
 	gBackgroundEntity.Draw()
 	gHero.Draw()
@@ -126,15 +132,13 @@ func Draw() {
 // //////////////////////////////////////////////////////////////////
 func Setup() {
 
-	h.EnableBlending()
-
 	m.Start()
+
+	h.EnableBlending()
 
 	m.Machine.AssetPath = "assets"
 
-	// initCamera must do that pretty early
-	initializeCamera(gWindowOptions)
-
+	initializeCamera() // Must be called fairly early
 	initializeKeyboardHandler()
 	initializeGodSprite()
 	initializeBackground()
@@ -153,7 +157,10 @@ func initializeHero() {
 	}
 
 	gHero.SetScale(1, 1)
-	gHero.Rotate(-90 * h.Degrees)
+	gHero.SetRotation(-90 * h.Degrees)
+	gHero.LimitRotation(265*h.Degrees, 275*h.Degrees)
+
+	gHero.LimitLocation(MIN_X+MARGIN, MIN_Y+MARGIN, MIN_X+2, MAX_Y-MARGIN)
 }
 
 // /
@@ -161,9 +168,8 @@ func initializeHero() {
 // / BACKGROUND
 // //////////////////////////////////////////////
 func initializeBackground() {
-	// verts, texCoords, indeces := h.SquareCoords()
-	scale := math.Sqrt2 / 2
-	verts, texCoords, indeces := h.PolygonCoords(4, 45*h.Degrees, scale, scale)
+	verts, texCoords, indeces := h.SquareCoords()
+	// verts, texCoords, indeces := h.PolygonCoords(4, 45*h.Degrees, SQRT2_HALF, SQRT2_HALF)
 
 	bgSprite := m.CreateSprite(SHADER_ID, BACKGROUND_TEX, verts, texCoords, indeces)
 	bgSprite.Texture.SetRepeatS()
@@ -176,14 +182,15 @@ func initializeBackground() {
 		UniColorMix:  0.0,
 		UniSubTexPos: mgl32.Vec4{0, 0, 1, 1},
 	}
-	gBackgroundEntity.SetScale(SCENE_W-2, SCENE_H-2)
+
+	gBackgroundEntity.SetScale(SCENE_W-MARGIN*2, SCENE_H-MARGIN*2)
 }
 
 // /
 // /
 // / CAMERA
 // //////////////////////////////////////////////
-func initializeCamera(options *WindowOptions) {
+func initializeCamera() {
 
 	gCamera = m.Machine.GetCamera(CAMERA_ID)
 	gCamera.SetFrameSize(SCENE_W, SCENE_H)
@@ -206,7 +213,7 @@ func initializeGodSprite() {
 // Keyboard handler
 // //////////////////////////////////////////////////////////////////
 func initializeKeyboardHandler() {
-	glfw.GetCurrentContext().SetKeyCallback(func(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
+	glfw.GetCurrentContext().SetKeyCallback(func(_ /* key */ *glfw.Window, key glfw.Key, _ /* scancode */ int, action glfw.Action, _ /* mods */ glfw.ModifierKey) {
 		if action == glfw.Repeat {
 			return
 		}
