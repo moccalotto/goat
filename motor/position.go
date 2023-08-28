@@ -58,6 +58,10 @@ func (P *UncachedPosition) normalizeRotation() {
 	P.Rot = glhelp.NormalizeAngle(P.Rot)
 }
 
+func (P *Position) GetNormalizedRotation() float32 {
+	return glhelp.NormalizeAngle(P.trans.Rot)
+}
+
 // clampToLimits position and rotation into their restricted values
 func (P *Position) clampToLimits() {
 
@@ -84,8 +88,14 @@ func (P *Position) clampToLimits() {
 func (P *Position) ApplyForce(f Force, delta float32) {
 	P.cacheValid = false
 
-	P.trans.X += f.Vec.X * delta
-	P.trans.Y += f.Vec.Y * delta
+	P.SetPos(
+		P.trans.X+f.Vec.X*delta,
+		P.trans.Y+f.Vec.Y*delta,
+	)
+
+	P.SetRotation(
+		P.trans.Rot + f.Rot*delta,
+	)
 	P.trans.Rot += f.Rot * delta
 }
 
@@ -113,13 +123,23 @@ func (P *Position) SetPos(x, y float32) {
 
 	P.cacheValid = P.cacheValid && (x == P.trans.X) && (y == P.trans.Y)
 
+	if P.trans.LimitLocation {
+		x = mgl32.Clamp(x, P.trans.MinX, P.trans.MaxX)
+		y = mgl32.Clamp(y, P.trans.MinY, P.trans.MaxY)
+	}
+
 	P.trans.X = x
 	P.trans.Y = y
 }
 
-func (P *Position) SetLimits(location, rotation, scale bool) {
+func (P *Position) ApplyLimits(location, rotation, scale bool) {
+	// location
 	P.trans.LimitLocation = location
+
+	// rotation
 	P.trans.LimitRotation = rotation
+
+	// scale
 	P.trans.LimitScale = scale
 }
 
@@ -133,6 +153,11 @@ func (P *Position) Move(dist glhelp.V2) {
 func (P *Position) SetRotation(r float32) {
 
 	r = glhelp.NormalizeAngle(r)
+
+	if P.trans.LimitRotation {
+		r = mgl32.Clamp(r, P.trans.MinRot, P.trans.MaxRot)
+	}
+
 	P.cacheValid = P.cacheValid && (r == P.trans.Rot)
 
 	P.trans.Rot = r
@@ -140,6 +165,42 @@ func (P *Position) SetRotation(r float32) {
 
 func (P *Position) Rotate(r float32) {
 	P.SetRotation(P.trans.Rot + r)
+}
+
+// combination of lerp and rotate
+func (P *Position) RotateTowards(target, amount float32) {
+
+	target = glhelp.NormalizeAngle(target)
+
+	P.SetRotation(
+		glhelp.Lerp(P.trans.Rot, target, amount),
+	)
+}
+
+func (P *Position) Get() (x, y, rot float32) {
+	x = P.trans.X
+	y = P.trans.Y
+	rot = P.trans.Rot
+
+	return
+}
+
+// if P.trans.Rot is within [distance] radians of target, then set rotation = target
+func (P *Position) SnapRotationTo(target, distance float32) {
+
+	target = glhelp.NormalizeAngle(target)
+
+	d := mgl32.Abs(target - P.trans.Rot)
+
+	if d < mgl32.Epsilon {
+		return // distance to target is functionally zero. We're done.
+	}
+
+	if d > distance {
+		return // too far away from target. Can't snap
+	}
+
+	P.SetRotation(target)
 }
 
 func (P *Position) SetScale(sx, sy float32) {

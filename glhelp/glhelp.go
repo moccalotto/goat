@@ -114,7 +114,25 @@ func EnableBlending() {
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 }
 
+// Unclamped Lerp
+// Matches GLSL's lerp: x * (1-a) + y * a
+//
+// https://registry.khronos.org/OpenGL-Refpages/gl4/html/mix.xhtml
+//
+// start * (1-amt) + end * amt
+func LerpU(start, end, amt float32) float32 {
+	return start*(1-amt) + end*amt
+}
+
+// More "safe" lerp, where amt is clamped
 func Lerp(start, end, amt float32) float32 {
+
+	if amt > 1 {
+		amt = 1
+	} else if amt < 0 {
+		amt = 0
+	}
+
 	diff := end - start
 
 	return start + diff*amt

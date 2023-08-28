@@ -47,12 +47,6 @@ func (vec V2) ToComplex() complex64 {
 
 // Return the polar coordinates of the vector
 func (vec V2) ToPolar() (angle float32, length float32) {
-
-	// This might be more efficient
-	// _length, _angle := cmplx.Polar(complex128(vec.ToComplex()))
-	// angle = float32(_angle)
-	// length = float32(_length)
-
 	angle = vec.Angle()
 	length = vec.Len()
 

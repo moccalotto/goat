@@ -45,6 +45,10 @@ func Start() {
 	}
 }
 
+func KeyPressed(key glfw.Key) bool {
+	return glfw.GetCurrentContext().GetKey(key) != glfw.Release
+}
+
 func (W *MachineStruct) Tick() {
 	W.TickCount += 1
 	W.Prev64 = W.Now64
