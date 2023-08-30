@@ -2,7 +2,7 @@ package main
 
 import (
 	h "goat/glhelp"
-	m "goat/motor" // gg = goat motor
+	m "goat/motor"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/go-gl/mathgl/mgl32"
@@ -12,7 +12,7 @@ func initializeHero() {
 	gHero = m.CreateBasicEnt(gSpriteSheet, gCamera)
 
 	gHero.UniColor = mgl32.Vec4{1, 1, 1, 1}
-	gHero.UniColorMix = 0.5
+	gHero.UniColorMix = 0
 	gHero.UniSubTexPos = m.Machine.GetDimsForSubtexture(ATLAS_ID, HERO_TEX_ID)
 
 	gHero.SetScale(1, 1)
