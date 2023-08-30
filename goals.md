@@ -3,7 +3,7 @@ Rectangles
 * Fully filled rectangle
 * Any scale, position, and orientation
 * Any color
-* 
+* Runded corners
 
 Fancy Rectangles
 ==========
