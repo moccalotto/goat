@@ -8,8 +8,20 @@ import (
 
 func SquareCoords() (verts []float32, texCoords []float32, indeces []uint32) {
 
-	verts = []float32{0.5, 0.5, 1, -0.5, 0.5, 1, -0.5, -0.5, 1, 0.5, -0.5, 1}
-	texCoords = []float32{1, 0, 0, 0, 0, 1, 1, 1}
+	verts = []float32{
+		0.5, 0.5, 1,
+		-0.5, 0.5, 1,
+		-0.5, -0.5, 1,
+		0.5, -0.5, 1,
+	}
+
+	texCoords = []float32{
+		1, 0,
+		0, 0,
+		0, 1,
+		1, 1,
+	}
+
 	indeces = []uint32{0, 1, 2, 0, 2, 3}
 
 	return

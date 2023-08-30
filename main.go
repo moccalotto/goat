@@ -4,6 +4,7 @@ import (
 	h "goat/glhelp"
 	m "goat/motor" // gg = goat motor
 	"math"
+	"math/rand"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
 	"github.com/go-gl/mathgl/mgl32"
@@ -21,33 +22,37 @@ func main() {
 }
 
 const (
-	SQRT2_HALF       = math.Sqrt2 / 2
-	SCENE_W          = 20
-	SCENE_H          = SCENE_W * 9 / 16
-	MARGIN           = 0.5
-	MIN_X            = -SCENE_W / 2
-	MAX_X            = SCENE_W / 2
-	MIN_Y            = -SCENE_H / 2
-	MAX_Y            = SCENE_H / 2
-	HERO_BASE_SPEED  = SCENE_H * 3 / 4
-	PX_FACTOR        = 150 // pixels per "square"
-	CAMERA_ID        = "mainCamera"
-	SHADER_ID        = "shaders/sprite"
-	BACKGROUND_TEX   = "Backgrounds/purple.png"
-	ATLAS_ID         = "Spritesheet/sheet.xml"
-	HERO_TEX_ID      = "playerShip1_blue.png"
-	LASER_BLUE_03_ID = "laserBlue03.png"
+	Degrees    = h.Degrees
+	SQRT2_HALF = math.Sqrt2 / 2
+	SCENE_W    = 20
+	SCENE_H    = SCENE_W * 9 / 16
+	MARGIN     = 0.5
+	MIN_X      = -SCENE_W / 2
+	MAX_X      = SCENE_W / 2
+	MIN_Y      = -SCENE_H / 2
+	MAX_Y      = SCENE_H / 2
+
+	ANGLE_LEFT  = 0
+	ANGLE_RIGHT = 180 * Degrees
+	ANGLE_UP    = 90 * Degrees
+	ANGLE_DOWN  = 270 * Degrees
+
+	PX_FACTOR       = 150 // pixels per "square"
+	CAMERA_ID       = "mainCamera"
+	SHADER_ID       = "shaders/sprite"
+	BACKGROUND_TEX  = "Backgrounds/purple.png"
+	ATLAS_ID        = "Spritesheet/sheet.xml"
+	HERO_TEX_ID     = "playerShip1_blue.png"
+	HERO_BASE_SPEED = SCENE_H * 3 / 4
 )
 
 var (
 	gBgScrollSpeed    float32 = 0.08
 	gCamera           *m.Camera
 	gWindow           *glfw.Window
-	gBackgroundEntity *m.BasicEntity
-	gGodSprite        *m.Sprite
-	gHero             *m.BasicEntity
-	gShots            []*m.BasicEntity = make([]*m.BasicEntity, 0, 200)
-	gEnemies          []*m.BasicEntity = make([]*m.BasicEntity, 0, 200)
+	gBackgroundEntity *m.SpriteEnt
+	gSpriteSheet      *m.SpriteGl
+	gHero             *m.SpriteEnt
 
 	gWindowOptions *WindowOptions = &WindowOptions{
 		Title:     "GOAT",
@@ -102,27 +107,29 @@ func actualMain() {
 // *
 // *
 // /////////////////////////////////////////////////////////////////
+
 func Update() {
+
+	// Spawn new enemy
+	if rand.Float32() < m.Machine.Delta/1 {
+		gEnemyTypes[rand.Int()%len(gEnemyTypes)].Spawn()
+	}
 
 	gHero.Update()
 
-    for i, shot := range gShots {
-        if shot == nil {
-            continue
-        }
-        shot.Update()
+	for _, pro := range gProjPool {
+		if pro == nil {
+			continue
+		}
+		pro.Update()
+	}
 
-
-        x, y, _ := shot.Get()
-        if x > MAX_X || x < MIN_X || y > MAX_Y || y < MIN_Y {
-            gShots[i] = nil
-        }
-    }
-
-    if m.Machine.TickCount % 60 == 0 {
-        print(len(gShots))
-        print("\n")
-    }
+	for _, nmy := range gEnemyPool {
+		if nmy == nil {
+			continue
+		}
+		nmy.Update() // maybe the enemy moves or fires their weapon
+	}
 }
 
 // //////////////////////////////////////////////////////////////////
@@ -131,7 +138,7 @@ func Update() {
 // * Background
 // * Protagonist
 // * Enemies
-// * Enemy shots
+// * Enemy projectiles
 // * Protagonist shots
 // * Asteroids and environment
 // * Explosions and effects
@@ -143,16 +150,27 @@ func Draw() {
 	//////////////////////
 	bgDist := gBgScrollSpeed * m.Machine.Delta
 	gBackgroundEntity.UniSubTexPos = gBackgroundEntity.UniSubTexPos.Add(mgl32.Vec4{bgDist, 0, bgDist, 0})
-
 	gBackgroundEntity.Draw()
-	gHero.Draw()
-    for _, shot := range gShots {
-        if shot == nil {
-            continue
-        }
 
-        shot.Draw()
-    }
+	// Draw the hero ship
+	gHero.Draw()
+
+	// Draw enemy ships
+	for _, nmy := range gEnemyPool {
+		if nmy == nil {
+			continue
+		}
+		nmy.Draw()
+	}
+
+	// Draw projectiles
+	for _, proj := range gProjPool {
+		if proj == nil {
+			continue
+		}
+		proj.Draw()
+	}
+
 }
 
 // //////////////////////////////////////////////////////////////////
@@ -170,6 +188,8 @@ func Setup() {
 	initializeKeyboardHandler()
 	initializeGodSprite()
 	initializeBackground()
+	initializeWeapons()
+	initializeEnemies()
 	initializeHero()
 }
 
@@ -184,8 +204,8 @@ func initializeBackground() {
 	bgSprite.Texture.SetRepeatS()
 	bgSprite.Finalize()
 
-	gBackgroundEntity = &m.BasicEntity{
-		Sprite:       bgSprite,
+	gBackgroundEntity = &m.SpriteEnt{
+		SpriteGl:     bgSprite,
 		Camera:       gCamera,
 		UniColor:     mgl32.Vec4{},
 		UniColorMix:  0.0,
@@ -201,11 +221,9 @@ func initializeBackground() {
 // //////////////////////////////////////////////
 func initializeCamera() {
 
-	gCamera = m.Machine.GetCamera(CAMERA_ID)
+	gCamera, _ = m.Machine.GetCamera(CAMERA_ID)
 	gCamera.SetFrameSize(SCENE_W, SCENE_H)
 	gCamera.SetPosition(0, 0)
-
-	m.Machine.Cameras[CAMERA_ID] = gCamera
 }
 
 // /
@@ -214,8 +232,8 @@ func initializeCamera() {
 // //////////////////////////////////////////////
 func initializeGodSprite() {
 	verts, texCoords, indeces := h.SquareCoords()
-	gGodSprite = m.CreateSpriteFromAtlas(SHADER_ID, ATLAS_ID, HERO_TEX_ID, verts, texCoords, indeces)
-	gGodSprite.Finalize()
+	gSpriteSheet = m.CreateSpriteFromAtlas(SHADER_ID, ATLAS_ID, HERO_TEX_ID, verts, texCoords, indeces)
+	gSpriteSheet.Finalize()
 }
 
 // //////////////////////////////////////////////////////////////////

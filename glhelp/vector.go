@@ -6,21 +6,21 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
-// /
-// /
-// /
-// / TYPES
-// /////////////////////////////////7
+// ||
+// ||
+// ||
+// || TYPES
+// ||=======================================
 type V4 struct{ X, Y, Z, W float32 }
 type V3 struct{ X, Y, Z float32 }
 type V2 struct{ X, Y float32 }
 type Color V4
 
-// /
-// /
-// /
-// / V2 Implementation
-// //////////////////////////////////////////
+// ||
+// ||
+// ||
+// ||V2 implementation
+// ||=======================================
 func Vec2FromMgl(mvec mgl32.Vec2) (vec V2) {
 	vec.X = mvec[0]
 	vec.Y = mvec[1]
@@ -184,8 +184,8 @@ func (vec V2) ToArray() [2]float32 {
 	return [2]float32{vec.X, vec.Y}
 }
 
-// /
-// /
-// /
-// / V3 Implementation
-// //////////////////////////////////////////
+// ||
+// ||
+// ||
+// ||V3 implementation
+// ||=============================================================

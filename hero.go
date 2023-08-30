@@ -9,19 +9,18 @@ import (
 )
 
 func initializeHero() {
-	sprite := gGodSprite.Clone()
-
-	gHero = m.CreateBasicEntity(sprite, gCamera)
+	gHero = m.CreateBasicEnt(gSpriteSheet, gCamera)
 
 	gHero.UniColor = mgl32.Vec4{1, 1, 1, 1}
 	gHero.UniColorMix = 0.5
 	gHero.UniSubTexPos = m.Machine.GetDimsForSubtexture(ATLAS_ID, HERO_TEX_ID)
 
 	gHero.SetScale(1, 1)
-	gHero.SetRotation(-90 * h.Degrees)
-	gHero.LimitRotation(265*h.Degrees, 275*h.Degrees)
+	gHero.SetAngle(0 * h.Degrees)
+	gHero.SetAngleOffset(-90 * Degrees)
+	gHero.LimitAngle(-5*Degrees, 5*Degrees)
 	gHero.LimitLocation(MIN_X+MARGIN, MIN_Y+MARGIN, MIN_X+2, MAX_Y-MARGIN)
-	gHero.SetPos(MIN_X+2, 0)
+	gHero.SetXY(MIN_X+2, 0)
 
 	DownForce := m.Force{
 		Vec: h.V2{Y: -HERO_BASE_SPEED},
@@ -32,7 +31,7 @@ func initializeHero() {
 		Rot: 0.3,
 	}
 
-	gHero.Behavior = func(_ m.Entity) {
+	gHero.Behavior = m.CreateSimpleBehavior(func(_ *m.SpriteEnt) {
 
 		revert := true
 		if m.KeyPressed(glfw.KeyDown) {
@@ -46,12 +45,13 @@ func initializeHero() {
 		}
 
 		if revert {
-			gHero.RotateTowards(270*h.Degrees, m.Machine.Delta*10)
-			gHero.SnapRotationTo(270, 0.5*h.Degrees)
+			gHero.RotateTowards(0*h.Degrees, m.Machine.Delta*10)
+			gHero.SnapAngleTo(0, 0.5*h.Degrees)
 		}
 
-		if m.KeyPressed(glfw.KeySpace) {
-			heroShoots()
+		if m.KeyPressed(glfw.KeySpace) && m.Machine.Now64 > gCooldownUntil {
+			gCurWeapon.Fire(gHero)
+			gCooldownUntil = m.Machine.Now64 + gCurWeapon.cooldown
 		}
-	}
+	})
 }

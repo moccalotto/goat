@@ -5,7 +5,6 @@ import (
 )
 
 type Force struct {
-	Vec   glhelp.V2
-	Rot   float32 // Rotation around own axis (radians per second)
-	Flags uint64
+	Vec glhelp.V2
+	Rot float32 // Rotation around own axis (radians per second)
 }

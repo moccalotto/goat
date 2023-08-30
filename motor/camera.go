@@ -13,7 +13,7 @@ type Camera struct {
 	wPosY        float32 // The Y position the camera is looking at - in world coordinates
 	wFrameWidth  float32 // The width of the camera view - in world coordinates
 	wFrameHeight float32 // The height of the camera view - in world coordinates
-	wOrientation float32 // the angle relative to the world's X-axis, of the camera - in radians
+	wAngle       float32 // the angle relative to the world's X-axis, of the camera - in radians
 
 	transMatrixCache mgl32.Mat3
 	cacheValid       bool
@@ -25,7 +25,7 @@ func CreateCamera() *Camera {
 		wPosY:        0,
 		wFrameWidth:  2,
 		wFrameHeight: 2,
-		wOrientation: 0.0,
+		wAngle:       0.0,
 	}
 }
 
@@ -34,9 +34,8 @@ func (C *Camera) GetMatrix() mgl32.Mat3 {
 	if C.cacheValid {
 		return C.transMatrixCache
 	}
-
 	scale := mgl32.Scale2D(2/C.wFrameWidth, 2/C.wFrameHeight)
-	rotate := mgl32.HomogRotate2D(C.wOrientation)
+	rotate := mgl32.HomogRotate2D(C.wAngle)
 	translate := mgl32.Translate2D(C.wPosX, C.wPosY)
 
 	// Scale, Rotate, Translate: reverse order as when transforming models
@@ -49,12 +48,12 @@ func (C *Camera) GetMatrix() mgl32.Mat3 {
 
 func (C *Camera) Rotate(radians float32) {
 	C.cacheValid = false
-	C.wOrientation -= radians // cam movement must be inverted to behave as expected
+	C.wAngle -= radians // cam rotation must be inverted to behave as expected
 }
 
-func (C *Camera) SetRotation(radians float32) {
+func (C *Camera) SetAngle(radians float32) {
 	C.cacheValid = false
-	C.wOrientation = -radians // cam rotation must be inverted to behave as expected
+	C.wAngle = -radians // cam rotation must be inverted to behave as expected
 }
 
 func (C *Camera) SetPosition(x, y float32) {

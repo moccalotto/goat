@@ -19,7 +19,7 @@ type MachineStruct struct {
 	SubTextureDims   map[string]mgl32.Vec4         // stores subtextures as "sheet.png/image.png" => minX, minY, maxX, maxY
 	AtlasDescriptors map[string]*h.AtlasDescriptor // stores atlasses as "sheet.png", not "sheet.xml"
 	Textures         map[string]*h.Texture         // Pointers to all active textures
-	Sprites          map[string]*Sprite            // Renderables are things that can be rendered (or that can render themselves)
+	Sprites          map[string]*SpriteGl          // Renderables are things that can be rendered (or that can render themselves)
 	Cameras          map[string]*Camera            // Contains the projection matrices. You may want to render ceretain things with one cam, and other things with another cam
 	AssetPath        string                        // Base path for all assets
 
@@ -39,7 +39,7 @@ func Start() {
 		SubTextureDims:   make(map[string]mgl32.Vec4),
 		AtlasDescriptors: make(map[string]*h.AtlasDescriptor),
 		Textures:         make(map[string]*h.Texture),
-		Sprites:          make(map[string]*Sprite),
+		Sprites:          make(map[string]*SpriteGl),
 		Cameras:          make(map[string]*Camera),
 		AssetPath:        "assets",
 	}
@@ -149,17 +149,17 @@ func (W *MachineStruct) GetShader(filename string) (*h.ShaderProgram, error) {
 	return prog, nil
 }
 
-func (W *MachineStruct) GetCamera(name string) *Camera {
+func (W *MachineStruct) GetCamera(name string) (cam *Camera, existsAlready bool) {
 
 	if cam, found := W.Cameras[name]; found {
-		return cam
+		return cam, found
 	}
 
-	cam := Camera{}
+	cam = &Camera{}
 
-	W.Cameras[name] = &cam
+	W.Cameras[name] = cam
 
-	return &cam
+	return
 }
 
 func (W *MachineStruct) GetDimsForSubtexture(atlasFilename, subTexFilename string) mgl32.Vec4 {
@@ -170,4 +170,13 @@ func (W *MachineStruct) GetDimsForSubtexture(atlasFilename, subTexFilename strin
 	}
 
 	return dims
+}
+
+func (W *MachineStruct) GetAspectRatioForSubTexture(atlasFilename, subTexFilename string) float32 {
+	dims := W.GetDimsForSubtexture(atlasFilename, subTexFilename)
+
+	w := dims[2] - dims[0]
+	h := dims[3] - dims[1]
+
+	return w / h
 }
