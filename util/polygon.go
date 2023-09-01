@@ -1,4 +1,4 @@
-package glhelp
+package util
 
 import (
 	"math"
@@ -6,6 +6,11 @@ import (
 	"github.com/go-gl/mathgl/mgl32"
 )
 
+// ||
+// ||
+// || Get coords for a simple Square
+// || TODO: Use interleaved buffer, possibly without indeces, possibly as a triangle fan
+// ||
 func SquareCoords() (verts []float32, texCoords []float32, indeces []uint32) {
 
 	verts = []float32{

@@ -1,4 +1,4 @@
-package glhelp
+package util
 
 import "runtime"
 
@@ -7,15 +7,18 @@ var (
 	maxConcurrentCalls = 32
 )
 
+// ||
+// || INIT FUNCTION
+// ||
+// ====================================
+func init() {
+	runtime.LockOSThread()
+}
+
 func assertInitialized() {
 	if mainthreadChannel == nil {
 		panic("You mus run your code inside RunInMainthread()")
 	}
-}
-
-// auto-called when file is loaded
-func init() {
-	runtime.LockOSThread()
 }
 
 func StartMainThreadSystem(fn func()) {

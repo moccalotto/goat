@@ -1,7 +1,7 @@
 package motor
 
 import (
-	"goat/glhelp"
+	"goat/util"
 
 	"github.com/go-gl/mathgl/mgl32"
 )
@@ -40,7 +40,7 @@ func (C *Camera) GetMatrix() mgl32.Mat3 {
 
 	// Scale, Rotate, Translate: reverse order as when transforming models
 	// this is because a camera can be considered an "inverse" model.
-	C.transMatrixCache = glhelp.MatMulX3(scale, rotate, translate)
+	C.transMatrixCache = util.MatMulX3(scale, rotate, translate)
 	C.cacheValid = true
 
 	return C.transMatrixCache
@@ -56,7 +56,7 @@ func (C *Camera) SetAngle(radians float32) {
 	C.wAngle = -radians // cam rotation must be inverted to behave as expected
 }
 
-func (C *Camera) SetPosition(x, y float32) {
+func (C *Camera) SetXY(x, y float32) {
 	C.cacheValid = false
 	C.wPosX = -x // camera movement must be negative to
 	C.wPosY = -y // behave as expected

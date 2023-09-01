@@ -1,4 +1,4 @@
-package glhelp
+package util
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/go-gl/gl/v4.6-core/gl"
 )
 
-type Texture struct {
+type TextureWrapper struct {
 	handle      uint32
 	unit        uint32 // number between 0 and GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS - GL_TEXTURE0
 	typ         uint32
@@ -24,7 +24,7 @@ type Texture struct {
 	initialized bool
 }
 
-func CreateTextureFromFile(filePath string, wrapR, wrapS int32) (*Texture, error) {
+func CreateTextureFromFile(filePath string, wrapR, wrapS int32) (*TextureWrapper, error) {
 
 	img, err := LoadImage(filePath)
 
@@ -35,7 +35,7 @@ func CreateTextureFromFile(filePath string, wrapR, wrapS int32) (*Texture, error
 	return CreateTexture(img, wrapR, wrapS)
 }
 
-func CreateTexture(img image.Image, wrapR, wrapS int32) (*Texture, error) {
+func CreateTexture(img image.Image, wrapR, wrapS int32) (*TextureWrapper, error) {
 
 	imgRgba := image.NewRGBA(img.Bounds())
 	draw.Draw(imgRgba, imgRgba.Bounds(), img, image.Pt(0, 0), draw.Src)
@@ -46,7 +46,7 @@ func CreateTexture(img image.Image, wrapR, wrapS int32) (*Texture, error) {
 		return nil, fmt.Errorf("only 32-bit colors supported. Stride is %d, but should be %d", imgRgba.Stride, stride)
 	}
 
-	return &Texture{
+	return &TextureWrapper{
 			handle:    0,
 			unit:      0,
 			wrapS:     wrapS,
@@ -62,7 +62,7 @@ func CreateTexture(img image.Image, wrapR, wrapS int32) (*Texture, error) {
 		nil
 }
 
-func (T *Texture) Finalize() {
+func (T *TextureWrapper) Finalize() {
 
 	if T.initialized {
 		GlLog("Texture already initialzied")
@@ -98,22 +98,22 @@ func (T *Texture) Finalize() {
 	AssertGLOK()
 }
 
-func (T *Texture) GetTextureUnit() uint32 {
+func (T *TextureWrapper) GetTextureUnit() uint32 {
 	return T.unit
 }
 
-func (T *Texture) Bind() {
+func (T *TextureWrapper) Bind() {
 	gl.BindTexture(T.typ, T.handle)
 	AssertGLOK("BindTexture")
 	gl.ActiveTexture(gl.TEXTURE0 + T.unit)
 	AssertGLOK("BindTexture")
 }
 
-func (T *Texture) Unbind() {
+func (T *TextureWrapper) Unbind() {
 	gl.BindTexture(T.typ, 0)
 }
 
-func (T *Texture) Destroy() {
+func (T *TextureWrapper) Destroy() {
 	if !T.initialized {
 		return
 	}
@@ -122,54 +122,54 @@ func (T *Texture) Destroy() {
 	AssertGLOK()
 }
 
-func (T *Texture) SetMagFilter(magFilter int32) {
+func (T *TextureWrapper) SetMagFilter(magFilter int32) {
 	if T.initialized {
 		GlPanic(fmt.Errorf("cannot change attributes of a texture that has been Initialized()"))
 	}
 	T.magFilter = magFilter
 }
 
-func (T *Texture) GetMagFilter() int32 {
+func (T *TextureWrapper) GetMagFilter() int32 {
 	return T.magFilter
 }
 
-func (T *Texture) SetMinFilter(minFilter int32) {
+func (T *TextureWrapper) SetMinFilter(minFilter int32) {
 	if T.initialized {
 		GlPanic(fmt.Errorf("cannot change attributes of a texture that has been Initialized()"))
 	}
 	T.minFilter = minFilter
 }
 
-func (T *Texture) GetMinFilter() int32 {
+func (T *TextureWrapper) GetMinFilter() int32 {
 	return T.minFilter
 }
 
-func (T *Texture) GetSize() (int32, int32) {
+func (T *TextureWrapper) GetSize() (int32, int32) {
 	return T.w, T.h
 }
 
-func (T *Texture) GetWrapR() int32 {
+func (T *TextureWrapper) GetWrapR() int32 {
 	return T.wrapR
 }
-func (T *Texture) SetWrapR(wrapR int32) {
+func (T *TextureWrapper) SetWrapR(wrapR int32) {
 	if T.initialized {
 		GlPanic(fmt.Errorf("cannot change attributes of a texture that has been Initialized()"))
 	}
 	T.wrapR = wrapR
 }
-func (T *Texture) SetRepeatR() {
+func (T *TextureWrapper) SetRepeatR() {
 	T.SetWrapR(gl.REPEAT)
 }
 
-func (T *Texture) GetWrapS() int32 {
+func (T *TextureWrapper) GetWrapS() int32 {
 	return T.wrapS
 }
-func (T *Texture) SetWrapS(wrapS int32) {
+func (T *TextureWrapper) SetWrapS(wrapS int32) {
 	if T.initialized {
 		GlPanic(fmt.Errorf("cannot change attributes of a texture that has been Initialized()"))
 	}
 	T.wrapS = wrapS
 }
-func (T *Texture) SetRepeatS() {
+func (T *TextureWrapper) SetRepeatS() {
 	T.SetWrapS(gl.REPEAT)
 }

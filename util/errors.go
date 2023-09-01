@@ -1,4 +1,4 @@
-package glhelp
+package util
 
 /**
 This file contains some unorthodox error handling that

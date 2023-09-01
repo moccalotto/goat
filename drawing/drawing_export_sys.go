@@ -6,7 +6,7 @@
 package drawing
 
 import (
-	h "goat/glhelp"
+	h "goat/util"
 	"log"
 	"os"
 	"time"

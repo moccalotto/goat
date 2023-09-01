@@ -1,10 +1,10 @@
 package motor
 
 import (
-	"goat/glhelp"
+	"goat/util"
 )
 
 type Force struct {
-	Vec glhelp.V2
+	Vec util.V2
 	Rot float32 // Rotation around own axis (radians per second)
 }

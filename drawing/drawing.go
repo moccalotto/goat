@@ -1,7 +1,7 @@
 package drawing
 
 import (
-	"goat/glhelp"
+	"goat/util"
 	"log"
 	"time"
 
@@ -109,7 +109,7 @@ func (dm *Drawing) CallDrawFunc() {
 	dm.nowTime = glfw.GetTime()             // number of seconds since program started
 	dm.deltaTime = dm.nowTime - dm.prevTime // number of seconds since last update
 
-	glhelp.ClearScreenI(dm.bgColor.R, dm.bgColor.G, dm.bgColor.B, dm.bgColor.A)
+	util.ClearScreenI(dm.bgColor.R, dm.bgColor.G, dm.bgColor.B, dm.bgColor.A)
 
 	//
 	//********************************************

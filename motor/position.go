@@ -2,7 +2,7 @@ package motor
 
 import (
 	"fmt"
-	h "goat/glhelp"
+	h "goat/util"
 
 	"github.com/go-gl/mathgl/mgl32"
 )

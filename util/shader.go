@@ -1,10 +1,9 @@
-package glhelp
+package util
 
 import (
 	"errors"
 	"fmt"
 	"log"
-	"unsafe"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/mathgl/mgl32"
@@ -112,6 +111,8 @@ func (s *ShaderProgram) SetUniformAttr(name string, value interface{}) error {
 	}
 
 	switch typ := value.(type) {
+
+	//Basic Types
 	case bool:
 		tmp := int32(0)
 		if bool(value.(bool)) {
@@ -124,6 +125,24 @@ func (s *ShaderProgram) SetUniformAttr(name string, value interface{}) error {
 	case float32:
 		value := value.(float32)
 		gl.Uniform1fv(loc, 1, &value)
+
+		// GOAT Types
+	case V2:
+		arr := value.(V2).ToArray()
+		gl.Uniform2fv(loc, 1, &arr[0])
+	case V3:
+		arr := value.(V3).ToArray()
+		gl.Uniform3fv(loc, 1, &arr[0])
+	case V4:
+		arr := value.(V4).ToArray()
+		gl.Uniform4fv(loc, 1, &arr[0])
+
+	case *TextureWrapper: // GOAT Texture Type
+		value := int32(value.(*TextureWrapper).GetTextureUnit())
+		gl.Uniform1iv(loc, 1, &value)
+
+		// MGL Types
+		//
 	case mgl32.Vec2:
 		value := value.(mgl32.Vec2)
 		gl.Uniform2fv(loc, 1, &value[0])
@@ -136,9 +155,7 @@ func (s *ShaderProgram) SetUniformAttr(name string, value interface{}) error {
 	case mgl32.Mat3:
 		value := value.(mgl32.Mat3)
 		gl.UniformMatrix3fv(loc, 1, false, &value[0])
-	case *Texture:
-		value := int32(value.(*Texture).GetTextureUnit())
-		gl.Uniform1iv(loc, 1, &value)
+
 	default:
 		return GlProbablePanic(fmt.Errorf("unsupported data type: %v", typ))
 	}
@@ -171,17 +188,17 @@ func (S *ShaderProgram) EnableVertexAttribArray(name string) {
 	AssertGLOK("EnableVertexAttribArray", name)
 }
 
-func (S *ShaderProgram) VertexAttribPointer(name string, size int32, xtype uint32, normalized bool, stride int32, pointer unsafe.Pointer) {
+func (S *ShaderProgram) VertexAttribPointer(name string, size int32, xtype uint32, normalized bool, stride int32, pointer uintptr) {
 	pos, err := S.getAttribLocation(name)
 	if err != nil {
 		GlPanic(fmt.Errorf("VertexAttribPointer: %v", err))
 	}
 
-	gl.VertexAttribPointer(
+	gl.VertexAttribPointerWithOffset(
 		pos,        // Must match layout in shader
-		size,       // size
+		size,       // number of components per vertex (1-4)
 		xtype,      // type of data in vector components (i think)
-		normalized, // data is not normalized
+		normalized, // false: data is not normalized
 		stride,     // stride (there are zero bytes in between the vertices in the array)
 		pointer,
 	)

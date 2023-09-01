@@ -2,7 +2,7 @@ package motor
 
 import (
 	"fmt"
-	h "goat/glhelp"
+	h "goat/util"
 	"path"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
@@ -18,10 +18,10 @@ type MachineStruct struct {
 	Shaders          map[string]*h.ShaderProgram   // A pointer to all the shader programs currently active in the world
 	SubTextureDims   map[string]mgl32.Vec4         // stores subtextures as "sheet.png/image.png" => minX, minY, maxX, maxY
 	AtlasDescriptors map[string]*h.AtlasDescriptor // stores atlasses as "sheet.png", not "sheet.xml"
-	Textures         map[string]*h.Texture         // Pointers to all active textures
-	Sprites          map[string]*SpriteGl          // Renderables are things that can be rendered (or that can render themselves)
+	Textures         map[string]*h.TextureWrapper  // Pointers to all active textures
 	Cameras          map[string]*Camera            // Contains the projection matrices. You may want to render ceretain things with one cam, and other things with another cam
 	AssetPath        string                        // Base path for all assets
+	MainCamera       *Camera
 
 	// Timing
 	Now64     float64
@@ -38,11 +38,11 @@ func Start() {
 		Shaders:          make(map[string]*h.ShaderProgram),
 		SubTextureDims:   make(map[string]mgl32.Vec4),
 		AtlasDescriptors: make(map[string]*h.AtlasDescriptor),
-		Textures:         make(map[string]*h.Texture),
-		Sprites:          make(map[string]*SpriteGl),
+		Textures:         make(map[string]*h.TextureWrapper),
 		Cameras:          make(map[string]*Camera),
 		AssetPath:        "assets",
 	}
+	Machine.GetCamera("main")
 }
 
 func KeyPressed(key glfw.Key) bool {
@@ -81,7 +81,7 @@ func (W *MachineStruct) LoadTextureAtlas(filename string) *h.AtlasDescriptor {
 	//
 	// Load and unserialize the texture atlas lookup table
 	assetPath := W.getPathForAsset(filename)
-	descriptor, err := h.LoadTextureAtlas(assetPath)
+	descriptor, err := h.LoadTextureAtlasFile(assetPath)
 	if err != nil {
 		h.GlPanic(fmt.Errorf("cannot not load texture atlas '%s': %v", filename, err))
 	}
@@ -112,7 +112,7 @@ func (W *MachineStruct) LoadTextureAtlas(filename string) *h.AtlasDescriptor {
 	return descriptor
 }
 
-func (W *MachineStruct) GetTexture(filename string) (*h.Texture, error) {
+func (W *MachineStruct) GetTexture(filename string) (*h.TextureWrapper, error) {
 
 	// Texture already loaded. Success.
 	if tex, found := W.Textures[filename]; found {
@@ -156,6 +156,14 @@ func (W *MachineStruct) GetCamera(name string) (cam *Camera, existsAlready bool)
 	}
 
 	cam = &Camera{}
+
+	if W.MainCamera == nil {
+		W.MainCamera = cam
+	}
+
+	if name == "main" {
+		W.MainCamera = cam
+	}
 
 	W.Cameras[name] = cam
 

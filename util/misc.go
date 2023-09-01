@@ -1,4 +1,4 @@
-package glhelp
+package util
 
 /**
 Wrapper for all calls to opengl.
@@ -28,9 +28,9 @@ const (
 
 	Degrees = FullCircle / 360
 
-	Float32Size = 4
-	Uint32Size  = 4
-	Int32Size   = 4
+	F32_SIZE   = 4
+	Uint32Size = 4
+	Int32Size  = 4
 )
 
 func LoadImage(filePath string) (*image.RGBA, error) {
@@ -59,6 +59,10 @@ func LoadImage(filePath string) (*image.RGBA, error) {
 	return imgRgba, nil
 }
 
+func GlPtr32f(a *float32) unsafe.Pointer {
+	return unsafe.Pointer(a)
+}
+
 /**
  * Return a pointer to the given string
  */
@@ -68,6 +72,10 @@ func GlStr(str string) *uint8 {
 	 * What if this temporary string gets garbage collected before OpenGL gets to use it ?
 	 */
 	return unsafe.StringData(str + "\x00")
+}
+
+func Clear() {
+	gl.Clear(gl.COLOR_BUFFER_BIT)
 }
 
 func ClearScreenF(r, g, b, a float32) {
@@ -185,4 +193,12 @@ func Sign(f float32) float32 {
 
 func Hypot(a, b float32) float32 {
 	return float32(math.Hypot(float64(a), float64(b)))
+}
+
+func MinMax(a, b float32) (min, max float32) {
+	if a < b {
+		return a, b
+	}
+
+	return b, a
 }

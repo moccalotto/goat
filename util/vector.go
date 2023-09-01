@@ -1,4 +1,4 @@
-package glhelp
+package util
 
 import (
 	"math"
@@ -14,7 +14,6 @@ import (
 type V4 struct{ X, Y, Z, W float32 }
 type V3 struct{ X, Y, Z float32 }
 type V2 struct{ X, Y float32 }
-type Color V4
 
 // ||
 // ||
@@ -41,8 +40,9 @@ func PolarV2(radians, length float32) V2 {
 	}
 }
 
-func (vec V2) ToComplex() complex64 {
-	return complex(vec.X, vec.Y)
+// Useful for converting into an OpenGL vector, which is just an array
+func (vec V2) ToArray() [2]float32 {
+	return [2]float32{vec.X, vec.Y}
 }
 
 // Return the polar coordinates of the vector
@@ -53,10 +53,12 @@ func (vec V2) ToPolar() (angle float32, length float32) {
 	return // Using named output args improves intellisense
 }
 
+// Length / magnitude of the vector
 func (vec V2) Len() float32 {
 	return Hypot(vec.X, vec.Y)
 }
 
+// Angle of the vector, relative to the x-axis
 func (vec V2) Angle() float32 {
 	return float32(math.Atan2(
 		float64(vec.Y), float64(vec.X),
@@ -171,6 +173,10 @@ func (vec V2) ClampAngle(min, max float32) V2 {
 	return vec
 }
 
+func (vec1 V2) Between(vec2 V2) V2 {
+	return vec2.Sub(vec1).Scale(0.5).Add(vec1)
+}
+
 func (vec V2) ToVec3(z float32) V3 {
 	return V3{vec.X, vec.Y, z}
 }
@@ -179,13 +185,34 @@ func (vec V2) ToVec4(z, w float32) V4 {
 	return V4{vec.X, vec.Y, z, w}
 }
 
-// Turn into array, useful for sending data to shaders
-func (vec V2) ToArray() [2]float32 {
-	return [2]float32{vec.X, vec.Y}
-}
-
 // ||
 // ||
 // ||
 // ||V3 implementation
 // ||=============================================================
+// Useful for converting into an OpenGL vector, which is just an array
+func (vec V3) ToArray() [3]float32 {
+	return [3]float32{vec.X, vec.Y, vec.Z}
+}
+
+func VecXYZ(x, y, z float32) V3 {
+	return V3{x, y, z}
+}
+
+// ||
+// ||
+// ||
+// ||V4 implementation
+// ||=============================================================
+// Useful for converting into an OpenGL vector, which is just an array
+func (vec V4) ToArray() [4]float32 {
+	return [4]float32{vec.X, vec.Y, vec.Z, vec.W}
+}
+
+func VecRGBA(x, y, z, w float32) V4 {
+	return V4{x, y, z, w}
+}
+
+func OPAQ_WHITE() V4 {
+	return V4{1, 1, 1, 1}
+}
