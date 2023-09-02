@@ -1,12 +1,13 @@
-package motor
+package tractor
 
 import (
-	u "goat/util"
+	u "goat/shed"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/mathgl/mgl32"
 )
 
+// ||=============================
 // ||
 // || Basic (Filled) Rect Renderer
 // ||
@@ -26,7 +27,8 @@ type BasicRectRenderer struct {
 }
 
 func CreateBasicRectRenderer(shaderFileBaseName string) *BasicRectRenderer {
-	shader, err := Machine.GetShader(shaderFileBaseName)
+
+	shader, err := Engine.GetShader(shaderFileBaseName)
 	u.GlPanicIfErrNotNil(err)
 
 	return &BasicRectRenderer{

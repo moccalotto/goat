@@ -1,6 +1,6 @@
 /// lua utils
 
-package drawing
+package pilot
 
 import (
 	"fmt"

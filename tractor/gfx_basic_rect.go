@@ -1,7 +1,7 @@
-package motor
+package tractor
 
 import (
-	"goat/util"
+	"goat/shed"
 )
 
 type BasicRect struct {
@@ -10,7 +10,7 @@ type BasicRect struct {
 	Deleted  bool
 	Position
 
-	Color util.V4
+	Color shed.V4
 }
 
 func CreateBasicRect(x, y, w, h, a float32, camera *Camera, renderer *BasicRectRenderer) *BasicRect {
@@ -18,7 +18,7 @@ func CreateBasicRect(x, y, w, h, a float32, camera *Camera, renderer *BasicRectR
 	R := BasicRect{
 		Camera:   camera,
 		Renderer: renderer,
-		Color:    util.OPAQ_WHITE(),
+		Color:    shed.OPAQ_WHITE(),
 	}
 
 	R.SetXY(x, y)

@@ -1,4 +1,4 @@
-package drawing
+package pilot
 
 import (
 	"fmt"

@@ -1,55 +1,47 @@
 package main
 
 import (
-	m "goat/motor"
-	h "goat/util"
+	"goat/shed"
+	"goat/tractor"
 
 	"github.com/go-gl/glfw/v3.3/glfw"
-	"github.com/go-gl/mathgl/mgl32"
 )
 
 func main() {
 
 	// start the mainthread system, allowing us to make calls on the main thread later
 	// h.StartMainThreadSystem(actualMain)
-    actualMain()
+	actualMain()
 }
 
 const (
 	SCENE_W = 3000
 	SCENE_H = SCENE_W * 9 / 16
-	MARGIN  = 0.5
+	MARGIN  = 100
 	MIN_X   = -SCENE_W / 2
 	MAX_X   = SCENE_W / 2
 	MIN_Y   = -SCENE_H / 2
 	MAX_Y   = SCENE_H / 2
 
-	PX_FACTOR     = 1 // pixels per "square"
-	CAMERA_ID     = "main"
-	SPRITE_SHADER = "shaders/sprite"
-	RECT_SHADER   = "shaders/rect"
-	BG_TEX_FN     = "Backgrounds/purple.png"
-	ATLAS_FN      = "Spritesheet/sheet.xml"
-	TEST_TEX_FN   = "playerShip1_blue.png"
+	PX_FACTOR       = 1 // pixels per "square"
+	CAMERA_ID       = "main"
+	SPRITE_SHADER   = "shaders/sprite"
+	RECT_SHADER     = "shaders/rect"
+	BG_TEX_FN       = "Backgrounds/purple.png"
+	ATLAS_FN        = "Spritesheet/sheet.xml"
+	TEST_TEX_FN     = "playerShip1_blue.png"
+	BG_SCROLL_SPEED = 0.08
 )
 
 var (
-	gBgScrollSpeed       float32 = 0.08
-	gCamera              *m.Camera
+	gCamera              *tractor.Camera
 	gWindow              *glfw.Window
-	gBackgroundSprite    *m.Sprite
-	gMainTexQuadRenderer *m.TexQuadRenderer
-	gMainRectRenderer    *m.BasicRectRenderer
-	gMainSprite          *m.Sprite
-	gMainRect            *m.BasicRect
-	gMainLine            *m.BasicLine
-
-	gWindowOptions *WindowOptions = &WindowOptions{
-		Title:     "GOAT",
-		Width:     SCENE_W * PX_FACTOR,
-		Height:    SCENE_H * PX_FACTOR,
-		Resizable: false,
-	}
+	gBackgroundSprite    *tractor.Sprite
+	gMainTexQuadRenderer *tractor.TexQuadRenderer
+	gMainRectRenderer    *tractor.BasicRectRenderer
+	gMainSprite          *tractor.Sprite
+	gMainRect            *tractor.BasicRect
+	gMainLine            *tractor.BasicLine
 )
 
 // ||========================================================
@@ -59,36 +51,25 @@ var (
 // ||========================================================
 func actualMain() {
 
-	// || MUST BE THE FIRST THING WE DO
-	// ||
-	// ||
-	// || TODO: Move to Machine
-	// ||
-	// ||=======================================
-	_, _window, err := initGlfw(gWindowOptions)
-	h.GlPanicIfErrNotNil(err)
-	gWindow = _window
+	tractor.StartMain(&tractor.WindowOptions{
+		Title:     "GOAT",
+		Width:     SCENE_W * PX_FACTOR,
+		Height:    SCENE_H * PX_FACTOR,
+		Resizable: false,
+	})
 
 	Setup()
 
 	//
 	// timing and bookkeeping variables
 
-	for !gWindow.ShouldClose() {
-		h.Clear()
-
-		m.Machine.Tick()
-
+	tractor.Engine.Loop(func() {
 		Update()
 		Draw()
+	})
 
-		gWindow.SwapBuffers()
-
-		h.AssertGLOK("EndOfDraw")
-
-		glfw.PollEvents()
-
-	}
+	// Free/dispose all allocated resources
+	tractor.Engine.Dispose()
 }
 
 // ||========================================================
@@ -98,19 +79,26 @@ func actualMain() {
 // ||========================================================
 
 func Update() {
-	sin, cos := h.Sincos(m.Machine.Now)
+
 	// Background
 	// =================
-	bgDist := gBgScrollSpeed * m.Machine.Delta
-	gBackgroundSprite.UniSubTexPos = gBackgroundSprite.UniSubTexPos.Add(mgl32.Vec4{bgDist, 0, bgDist, 0})
+	bgDist := BG_SCROLL_SPEED * tractor.Engine.Delta
+	gBackgroundSprite.UniSubTexPos = gBackgroundSprite.UniSubTexPos.Plus(shed.Vec4(bgDist, 0, bgDist, 0))
 
-	// Rotate main sprite
-	gMainSprite.Rotate(m.Machine.Delta)
+	// SPRITE
+	// =====================================
+	gMainSprite.Rotate(tractor.Engine.Delta)
 
-	// Rotate and color main rect
-	gMainRect.Rotate(-m.Machine.Delta * 2)
-	gMainRect.Color.Y = 0.5 + sin*0.5
-	gMainRect.Color.Z = 0.5 + cos*0.5
+	// RECTANGLE
+	// =====================================
+	sin0, _ := shed.Sincos(tractor.Engine.Now)
+	sin120, _ := shed.Sincos(tractor.Engine.Now + shed.Tau/3)
+	sin240, _ := shed.Sincos(tractor.Engine.Now + shed.Tau*2/3)
+	//
+	gMainRect.Rotate(-tractor.Engine.Delta * 2)
+	gMainRect.Color.C1 = 0.5 + sin0*0.5
+	gMainRect.Color.C2 = 0.5 + sin120*0.5
+	gMainRect.Color.C3 = 0.5 + sin240*0.5
 }
 
 // ||========================================================
@@ -130,13 +118,28 @@ func Draw() {
 	// ================
 	gMainRect.Draw()
 
-	gMainLine = m.CreateBasicLine(
-		-250, 0, // pt1
-		250, 0, // pt2
-		50, // thickness
-		gCamera,
-		gMainRectRenderer,
-	)
+	p1 := shed.Vec2(-250, -250) // lower left
+	p2 := shed.Vec2(250, -250)  // lower right
+	gMainLine.SetColor(shed.RGBA(1, 1, 1, 1))
+	gMainLine.SetPoints(p1, p2)
+	gMainLine.Draw()
+
+	p1 = p2
+	p2 = shed.Vec2(250, 250) // upper right
+	gMainLine.SetColor(shed.RGBA(1, 0, 1, 1))
+	gMainLine.SetPoints(p1, p2)
+	gMainLine.Draw()
+
+	p1 = p2
+	p2 = shed.Vec2(-250, 250) // upper left
+	gMainLine.SetColor(shed.RGBA(1, 1, 0, 1))
+	gMainLine.SetPoints(p1, p2)
+	gMainLine.Draw()
+
+	p1 = p2
+	p2 = shed.Vec2(-250, -250) // lower left
+	gMainLine.SetColor(shed.RGBA(0, 1, 1, 1))
+	gMainLine.SetPoints(p1, p2)
 	gMainLine.Draw()
 }
 
@@ -147,15 +150,15 @@ func Draw() {
 // ||========================================================
 func Setup() {
 
-	m.Start()
+	shed.EnableBlending()
 
-	h.EnableBlending()
-
-	m.Machine.AssetPath = "assets"
+	tractor.Engine.AssetPath = "assets"
 
 	initCamera() // Must be called fairly early
 	initKeyboardHandler()
 	initBackground()
 	initMainSprite()
 	initBasicRect()
+	gMainLine = tractor.CreateBasicLine(0, 0, 0, 0, 50, gCamera, gMainRectRenderer)
+
 }

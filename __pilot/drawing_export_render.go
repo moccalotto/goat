@@ -3,7 +3,7 @@
 * are related to graphics and rendering.
 ******************************************/
 
-package drawing
+package pilot
 
 import (
 	"math"

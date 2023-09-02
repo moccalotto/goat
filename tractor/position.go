@@ -1,8 +1,8 @@
-package motor
+package tractor
 
 import (
 	"fmt"
-	h "goat/util"
+	h "goat/shed"
 
 	"github.com/go-gl/mathgl/mgl32"
 )
@@ -71,18 +71,6 @@ func (P *Position) clampToLimits() {
 		P.angle = mgl32.Clamp(P.angle, P.minAngle, P.maxAngle)
 		P.cacheValid = false
 	}
-}
-
-func (P *Position) ApplyForce(f Force, delta float32) {
-	P.cacheValid = false
-
-	P.SetXY(
-		P.x+f.Vec.X*delta,
-		P.y+f.Vec.Y*delta,
-	)
-
-	P.Rotate(f.Rot * delta)
-	P.angle += f.Rot * delta
 }
 
 func CreatePosition() Position {

@@ -1,4 +1,4 @@
-package util
+package shed
 
 import (
 	"errors"
@@ -230,7 +230,7 @@ func (S *ShaderProgram) getLinkError() error {
 	return nil
 }
 
-func compileShader(shaderType uint32, filePath string) (shader_id uint32, e error) {
+func compileShader(shaderType uint32, filePath string) (shader_id uint32, err error) {
 
 	source, err := ReadFile(filePath)
 	if err != nil {
@@ -263,5 +263,6 @@ func compileShader(shaderType uint32, filePath string) (shader_id uint32, e erro
 		log.Println(logStr)
 		return 0, fmt.Errorf("cannot compile shader '%s': %s", filePath, logStr)
 	}
+
 	return shader_id, nil
 }

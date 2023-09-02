@@ -1,4 +1,4 @@
-package util
+package shed
 
 /**
 Wrapper for all calls to opengl.
@@ -59,30 +59,33 @@ func LoadImage(filePath string) (*image.RGBA, error) {
 	return imgRgba, nil
 }
 
+// Pointer to a float32-pointer
 func GlPtr32f(a *float32) unsafe.Pointer {
 	return unsafe.Pointer(a)
 }
 
-/**
- * Return a pointer to the given string
- */
+// Return a pointer to the given string
 func GlStr(str string) *uint8 {
 	/**
-	 * TODO: are we doing something dangerous here?
-	 * What if this temporary string gets garbage collected before OpenGL gets to use it ?
-	 */
+		 * TODO: are we doing something dangerous here?
+		 * What if this temporary string gets garbage collected before OpenGL gets to use it ?
+	     * What if never gets collected
+	*/
 	return unsafe.StringData(str + "\x00")
 }
 
+// Clear current bufferm but dont specify a color (ie use last color)
 func Clear() {
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 }
 
+// Set a clear color, and clear the buffer
 func ClearScreenF(r, g, b, a float32) {
 	gl.ClearColor(r, g, b, a)
 	gl.Clear(gl.COLOR_BUFFER_BIT)
 }
 
+// Like ClearScreenF, but use uint8 values for colors
 func ClearScreenI(r, g, b, a uint8) {
 	ClearScreenF(
 		float32(r)/255.0,

@@ -1,11 +1,9 @@
-package util
+package shed
 
 import (
 	"encoding/xml"
 	"io"
 	"os"
-
-	"github.com/go-gl/mathgl/mgl32"
 )
 
 // Struct for an XML texture atlas
@@ -60,9 +58,9 @@ func (TA *AtlasDescriptor) GetSubTexture(filename string) *SubTexture {
 	return nil
 }
 
-func (st *SubTexture) GetDims(sheetW, sheetH float32) mgl32.Vec4 {
+func (st *SubTexture) GetDims(sheetW, sheetH float32) V4 {
 
-	return mgl32.Vec4{
+	return V4{
 		float32(st.X) / sheetW,
 		float32(st.Y) / sheetH,
 		float32(st.X+st.Width) / sheetW,

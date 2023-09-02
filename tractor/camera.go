@@ -1,12 +1,12 @@
-package motor
+package tractor
 
 import (
-	"goat/util"
+	"goat/shed"
 
 	"github.com/go-gl/mathgl/mgl32"
 )
 
-// A camera can transform world-sizes into opengl sizes [-1, 1]A
+// A camera can transform world-sizes into opengl sizes [-1, 1]
 // it also has a position so you can chose to only see some of your work area
 type Camera struct {
 	wPosX        float32 // The X position the camera is looking at - in world coordinates
@@ -40,7 +40,7 @@ func (C *Camera) GetMatrix() mgl32.Mat3 {
 
 	// Scale, Rotate, Translate: reverse order as when transforming models
 	// this is because a camera can be considered an "inverse" model.
-	C.transMatrixCache = util.MatMulX3(scale, rotate, translate)
+	C.transMatrixCache = shed.MatMulX3(scale, rotate, translate)
 	C.cacheValid = true
 
 	return C.transMatrixCache
@@ -87,6 +87,6 @@ func (C *Camera) GetFrameSize() (float32, float32) {
 }
 
 // Get frame size as a vector
-func (C *Camera) GetFrameSizeV() mgl32.Vec2 {
-	return mgl32.Vec2{C.wFrameWidth, C.wFrameHeight}
+func (C *Camera) GetFrameSizeV() shed.V2 {
+	return shed.Vec2(C.wFrameWidth, C.wFrameHeight)
 }

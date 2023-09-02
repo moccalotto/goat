@@ -1,10 +1,8 @@
 package main
 
 import (
-	m "goat/motor"
-	"goat/util"
-
-	"github.com/go-gl/glfw/v3.3/glfw"
+	"goat/shed"
+	m "goat/tractor"
 )
 
 // ||=================================================================
@@ -18,7 +16,7 @@ func initBasicRect() {
 	gMainRect = m.CreateBasicRect(
 		0, 0, // x, y
 		500, 500, // w, h
-		0*util.Degrees,
+		0*shed.Degrees,
 		gCamera,
 		gMainRectRenderer,
 	)
@@ -61,7 +59,7 @@ func initBackground() {
 // ||=================================================================
 func initCamera() {
 
-	gCamera, _ = m.Machine.GetCamera(CAMERA_ID)
+	gCamera, _ = m.Engine.GetCamera(CAMERA_ID)
 	gCamera.SetFrameSize(SCENE_W, SCENE_H)
 	gCamera.SetXY(0, 0)
 }
@@ -72,14 +70,11 @@ func initCamera() {
 // ||
 // ||=================================================================
 func initKeyboardHandler() {
-	glfw.GetCurrentContext().SetKeyCallback(func(_ /* key */ *glfw.Window, key glfw.Key, _ /* scancode */ int, action glfw.Action, _ /* mods */ glfw.ModifierKey) {
-		if action == glfw.Repeat {
-			return
-		}
-		keydown := action == glfw.Press
 
-		if keydown && key == glfw.KeyEscape {
-			glfw.GetCurrentContext().SetShouldClose(true)
+	m.Controls.HandleKeys(func(kev *m.KeyEvent) {
+		if kev.Escape {
+			m.Engine.GracefulShutdown()
 		}
 	})
+
 }

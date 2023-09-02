@@ -1,7 +1,7 @@
-package motor
+package tractor
 
 import (
-	"github.com/go-gl/mathgl/mgl32"
+	"goat/shed"
 )
 
 // Draw a sprite on screen
@@ -10,10 +10,9 @@ type Sprite struct {
 	Camera   *Camera
 	Position
 
-	UniSubTexPos mgl32.Vec4
-	UniColor     mgl32.Vec4
+	UniSubTexPos shed.V4
+	UniColor     shed.V4
 	UniColorMix  float32
-	Behavior     Behavior
 
 	Deleted bool
 }
@@ -22,8 +21,7 @@ func CreateSpriteAdv(renderer *TexQuadRenderer, camera *Camera) *Sprite {
 	return &Sprite{
 		Renderer:     renderer,
 		Camera:       camera,
-		Behavior:     nil,
-		UniSubTexPos: mgl32.Vec4{0, 0, 1, 1},
+		UniSubTexPos: shed.V4{C1: 0, C2: 0, C3: 1, C4: 1},
 		UniColorMix:  0,
 	}
 }
@@ -45,9 +43,6 @@ func (E *Sprite) Update() {
 	if E.Deleted {
 		return
 	}
-	if E.Behavior != nil {
-		E.Behavior.Update(E)
-	}
 }
 
 func (E *Sprite) Clone() *Sprite {
@@ -58,6 +53,5 @@ func (E *Sprite) Clone() *Sprite {
 		UniSubTexPos: E.UniSubTexPos,
 		UniColor:     E.UniColor,
 		UniColorMix:  E.UniColorMix,
-		Behavior:     E.Behavior,
 	}
 }

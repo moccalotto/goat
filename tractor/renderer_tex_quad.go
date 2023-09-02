@@ -1,8 +1,8 @@
-package motor
+package tractor
 
 import (
 	"fmt"
-	u "goat/util"
+	u "goat/shed"
 
 	"github.com/go-gl/gl/v4.6-core/gl"
 	"github.com/go-gl/mathgl/mgl32"
@@ -20,16 +20,21 @@ type TexQuadRenderer struct {
 	Atlas   *u.AtlasDescriptor // may be nil
 
 	// Uniform variables to send to the shader
-	UniColor     mgl32.Vec4
-	UniSubTexPos mgl32.Vec4
+	UniColor     u.V4
+	UniSubTexPos u.V4
 	UniColorMix  float32
 
 	// Buffer initialization stuff
 	buffersReady bool
 	vaoHandle    uint32
 	bufferHandle uint32
+
+	finalized bool
 }
 
+// || ========================================================================================================================================================================
+// ||
+// || SPRITE WITH ATLAS
 // ||
 // || Create a textured quad that contains a spritesheet / texture atlas
 // ||
@@ -42,12 +47,12 @@ type TexQuadRenderer struct {
 // ||  verts the vertices of the quad
 // ||  texCoords the overall texture coordinates of the entire sheet. should be [0, 0, 1, 1] because it will be modified by the coordinates of the subtextures
 // ||  indexes: indeces used in the element array
-// || ==================================================================
+// || ========================================================================================================================================================================
 func CreateTexAtlasRenderer(shaderFileBasename, atlas, subTexName string) *TexQuadRenderer {
-	shader, err := Machine.GetShader(shaderFileBasename)
+	shader, err := Engine.GetShader(shaderFileBasename)
 	u.GlPanicIfErrNotNil(err)
 
-	atlasDescriptor := Machine.LoadTextureAtlas(atlas)
+	atlasDescriptor := Engine.LoadTextureAtlas(atlas)
 
 	subTexInfo := atlasDescriptor.GetSubTexture(subTexName)
 
@@ -57,7 +62,7 @@ func CreateTexAtlasRenderer(shaderFileBasename, atlas, subTexName string) *TexQu
 		Shader:       shader,
 		Texture:      atlasDescriptor.Texture,
 		Atlas:        atlasDescriptor,
-		UniColor:     [4]float32{},
+		UniColor:     u.V4{},
 		UniSubTexPos: subTexInfo.GetDims(float32(w), float32(h)),
 		UniColorMix:  0,
 		buffersReady: false,
@@ -67,25 +72,25 @@ func CreateTexAtlasRenderer(shaderFileBasename, atlas, subTexName string) *TexQu
 	return &s
 }
 
+// || ===================================================
 // ||
 // || Create a Texture Quad for a non-atlassed texture
-// ||
 // ||
 // || ===================================================
 func CreateTexQuadRenderer(shaderAlias, textureAlias string) *TexQuadRenderer {
 
-	tex, err := Machine.GetTexture(textureAlias)
+	tex, err := Engine.GetTexture(textureAlias)
 	u.GlPanicIfErrNotNil(err)
 
-	shader, err := Machine.GetShader(shaderAlias)
+	shader, err := Engine.GetShader(shaderAlias)
 	u.GlPanicIfErrNotNil(err)
 
 	T := TexQuadRenderer{
 		Shader:       shader,
 		Texture:      tex,
-		UniColor:     mgl32.Vec4{1, 1, 1, 1},
+		UniColor:     u.OPAQ_WHITE(),
 		UniColorMix:  0.5, // mix tex and unicolor equally. good for debugging
-		UniSubTexPos: mgl32.Vec4{1, 1, 1, 1},
+		UniSubTexPos: u.V4{C1: 0, C2: 0, C3: 1, C4: 1},
 		buffersReady: false,
 	}
 
@@ -93,28 +98,30 @@ func CreateTexQuadRenderer(shaderAlias, textureAlias string) *TexQuadRenderer {
 }
 
 func (R *TexQuadRenderer) Finalize() {
+
+	if R.finalized {
+		return
+	}
+
 	R.Shader.Use()
 
 	R.Texture.Finalize()
-
-	R.Shader.SetUniformAttr("uniColorMix", R.UniColorMix)
-	R.Shader.SetUniformAttr("uniColor", R.UniColor)
-	R.Shader.SetUniformAttr("uniSubTexPos", R.UniSubTexPos)
 
 	if R.buffersReady {
 		return
 	}
 
-	// vertex and texture buffers are interleaved
+	// Create interleaved array of verts and
+	// texture coordinates.
 	const vt_bytes_pr_stride = u.F32_SIZE * 5   // 4 bytes per float and 5 floats per stride/vert
 	const vt_floats_total = 4 * 5               // 4 strides and 5 floats per stride
 	const vt_len = u.F32_SIZE * vt_floats_total // total length (in bytes) of the VT buffer
 	const Z, HI, LO = 1.0, 0.5, -0.5            // convenience
 	vt_buffer := [vt_floats_total]float32{
-		HI, HI, Z /* <== Vert || tex ==> */, 1, 1,
-		LO, HI, Z /* <== Vert || tex ==> */, 0, 1,
-		LO, LO, Z /* <== Vert || tex ==> */, 0, 0,
-		HI, LO, Z /* <== Vert || tex ==> */, 1, 0,
+		HI, HI, Z /* <== Vert | Tex ==> */, 1, 1,
+		LO, HI, Z /* <== Vert | Tex ==> */, 0, 1,
+		LO, LO, Z /* <== Vert | Tex ==> */, 0, 0,
+		HI, LO, Z /* <== Vert | Tex ==> */, 1, 0,
 	}
 	vt_ptr := u.GlPtr32f(&vt_buffer[0])
 
@@ -125,10 +132,12 @@ func (R *TexQuadRenderer) Finalize() {
 	// Vertex Array Object
 	gl.GenVertexArrays(1, &R.vaoHandle)
 	gl.BindVertexArray(R.vaoHandle)
+	defer gl.BindVertexArray(0)
 
 	//
 	// Vertex Buffer Object
 	gl.BindBuffer(gl.ARRAY_BUFFER, R.bufferHandle)
+	defer gl.BindBuffer(gl.ARRAY_BUFFER, 0)
 	gl.BufferData(gl.ARRAY_BUFFER, vt_len, vt_ptr, gl.STATIC_DRAW)
 
 	R.Shader.EnableVertexAttribArray("iVert")
@@ -138,13 +147,12 @@ func (R *TexQuadRenderer) Finalize() {
 	//
 	// Texture Buffers
 	R.Texture.Bind()
+	defer R.Texture.Unbind()
 	R.Shader.EnableVertexAttribArray("iTexCoord")
 	R.Shader.VertexAttribPointer("iTexCoord", 2, gl.FLOAT, false, vt_bytes_pr_stride, 3*u.F32_SIZE)
 	defer R.Shader.DisableVertexAttribArray("iTexCoord")
 
-	gl.BindVertexArray(0)
-	gl.BindBuffer(gl.ARRAY_BUFFER, 0)
-	R.Texture.Unbind()
+	R.finalized = true
 }
 
 func (R *TexQuadRenderer) MustUseSubTextureByName(name string) {

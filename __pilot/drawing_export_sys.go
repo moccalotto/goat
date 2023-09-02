@@ -3,10 +3,10 @@
  * functions that are "system" related.
  *****************************************/
 
-package drawing
+package pilot
 
 import (
-	h "goat/util"
+	h "goat/shed"
 	"log"
 	"os"
 	"time"
